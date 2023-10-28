@@ -1,0 +1,3 @@
+remove empty lines
+remove comments lines
+removing characters or some tokens is included in this part or embedding part

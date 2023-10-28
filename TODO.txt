@@ -1,0 +1,26 @@
+load data in proper format(token-level, line-level, method-level, class-level, file-level, module-level, release-level, project-level)
+preprocess data
+train and generate embedding for desired building block(word2vec, pretrained language models)
+now we have a vector of features for every building block and we have a label which specifies building block bug state
+now we use a machine learning or deep learning model for learning classification
+the trained model is evaluated and used on test data
+
+
+
+
+data gathering
+    collecting data with different formats from different projects
+
+
+
+    generating csv file for model
+
+
+
+
+
+
+
+
+
+data ----> embedding ----> model
