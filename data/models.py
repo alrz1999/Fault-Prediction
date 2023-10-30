@@ -9,6 +9,43 @@ from data.utils import CommentDetector, preprocess_code_line, is_empty_line, get
 
 
 class Project:
+class FileLevelDatasetGenerator:
+    def generate_file_level_dataset(self):
+        pass
+
+    def export_file_level_dataset(self):
+        pass
+
+    def import_file_level_dataset(self):
+        pass
+
+    def get_file_level_dataset_path(self, save_dir):
+        pass
+
+
+class LineLevelDatasetGenerator:
+    def __init__(self, save_dir):
+        self.save_dir = save_dir
+
+    def get_line_level_dataset(self):
+        imported_df = self.import_line_level_dataset()
+        if imported_df:
+            return imported_df
+        return self.generate_line_level_dataset()
+
+    def generate_line_level_dataset(self):
+        raise Exception()
+
+    def export_line_level_dataset(self):
+        pass
+
+    def import_line_level_dataset(self):
+        pass
+
+    def get_line_level_dataset_path(self):
+        pass
+
+
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
                           'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1'
