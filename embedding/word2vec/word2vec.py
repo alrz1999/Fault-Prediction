@@ -24,9 +24,9 @@ def export_word2vec_model(project, embedding_dim=50):
     print('save word2vec model at path {} done'.format(save_path))
 
 
-def import_word2vec_model(project, embedding_dim=50):
+def import_word2vec_model(project_name, embedding_dim=50):
     w2v_path = WORD2VEC_DIR
-    save_path = os.path.join(w2v_path, project.name + '-' + str(embedding_dim) + 'dim.bin')
+    save_path = os.path.join(w2v_path, project_name + '-' + str(embedding_dim) + 'dim.bin')
     return gensim.models.Word2Vec.load(save_path)
 
 

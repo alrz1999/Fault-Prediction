@@ -4,7 +4,7 @@ from embedding.word2vec.word2vec import import_word2vec_model, export_word2vec_m
 
 def import_model():
     project = Project("activemq")
-    model = import_word2vec_model(project)
+    model = import_word2vec_model(project.name)
     print(model.wv.key_to_index["if"])
 
 
