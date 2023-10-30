@@ -1,3 +1,10 @@
 remove empty lines
 remove comments lines
 removing characters or some tokens is included in this part or embedding part
+
+
+
+
+
+
+(project_name, release) -> -> a csv or multiple csvs including datas
