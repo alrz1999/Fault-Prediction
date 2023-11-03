@@ -88,6 +88,34 @@ class ASTTokenExtractor(TokenExtractor):
 
         return tokens
 
+    @staticmethod
+    def get_default_desired_token_types():
+        return (
+            javalang.tokenizer.Modifier,
+            javalang.tokenizer.Keyword,
+            javalang.tokenizer.Identifier,
+            # javalang.tokenizer.Separator,
+            javalang.tokenizer.BasicType,
+            javalang.tokenizer.DecimalInteger,
+            javalang.tokenizer.Operator,
+            javalang.tokenizer.String,
+        )
+
+    @staticmethod
+    def tokenize(input_text, desired_token_types=None):
+        # TODO line by line tokenization can be supported
+        # TODO masking and using placeholder instead of some types like Identifiers
+        tokens = []
+
+        if desired_token_types is None:
+            desired_token_types = ASTTokenExtractor.get_default_desired_token_types()
+
+        for token in javalang.tokenizer.tokenize(input_text):
+            if isinstance(token, desired_token_types):
+                tokens.append(token.value)
+
+        return tokens
+
 
 def test():
     input_text = """
@@ -99,8 +127,8 @@ def test():
         }
     }
     """
-    extractor = CFGTokenExtractor()
-    tokens = extractor.extract_tokens(input_text)
+    extractor = ASTTokenExtractor()
+    tokens = extractor.tokenize(input_text)
     print(tokens)
 
 
