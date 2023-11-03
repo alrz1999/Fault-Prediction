@@ -12,7 +12,7 @@ def main():
 
     model = GensimWord2VecModel(
         line_level_dataset_generator=project,
-        dataset_name="activemq",
+        dataset_name=project.name,
         embedding_dimension=50
     ).import_model()
 

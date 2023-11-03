@@ -8,8 +8,8 @@ from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
 
 # You may need to adjust the following imports according to your project's structure
-from config import MLP_SAVE_MODEL_DIR, MLP_SAVE_PREDICTION_DIR, DATE_SAVE_DIR
-from embedding.word2vec.word2vec import import_word2vec_model
+from config import MLP_SAVE_MODEL_DIR, MLP_SAVE_PREDICTION_DIR, PREPROCESSED_DATA_SAVE_DIR
+from embedding.word2vec.word2vec import GensimWord2VecModel
 from model.utils import prepare_data
 
 warnings.filterwarnings('ignore')
@@ -31,10 +31,15 @@ scaler = StandardScaler()  # Move this scaler definition to a higher scope
 
 # train_release is str
 def train_model(train_release):
-    train_df = train_release.import_line_level_df(DATE_SAVE_DIR)  # Assuming import_line_level_df is correctly imported
+    train_df = train_release.import_line_level_df(
+        PREPROCESSED_DATA_SAVE_DIR)  # Assuming import_line_level_df is correctly imported
     train_code, train_label = prepare_data(train_df, True)  # Assuming prepare_data is correctly imported
 
-    word2vec_model = import_word2vec_model(train_release.project_name)
+    word2vec_model = GensimWord2VecModel(
+        line_level_dataset_generator=train_release,
+        dataset_name=train_release.project_name
+    ).export_model()
+
     # Create Word2Vec embeddings for the code
     train_embeddings = []
     for code in train_code:
@@ -55,7 +60,7 @@ def train_model(train_release):
     X_res_scaled = scaler.fit_transform(X_res)
     clf.fit(X_res_scaled, y_res)
 
-    clf_path = os.path.join(MLP_SAVE_MODEL_DIR, re.sub('-.*', '', train_release.release) + "-MLP-model.bin")
+    clf_path = os.path.join(MLP_SAVE_MODEL_DIR, re.sub('-.*', '', train_release.release_name) + "-MLP-model.bin")
     pickle.dump(clf, open(clf_path, 'wb'))
 
     print('finished training model for', train_release)
@@ -63,15 +68,20 @@ def train_model(train_release):
 
 # test_release is str
 def predict_defective_files_in_releases(train_release, eval_releases):
-    clf_path = os.path.join(MLP_SAVE_MODEL_DIR, re.sub('-.*', '', train_release.release) + "-MLP-model.bin")
+    clf_path = os.path.join(MLP_SAVE_MODEL_DIR, re.sub('-.*', '', train_release.release_name) + "-MLP-model.bin")
     clf = pickle.load(open(clf_path, 'rb'))
 
     for rel in eval_releases:
-        test_df = rel.import_line_level_df(DATE_SAVE_DIR)  # Assuming import_line_level_df is correctly imported
+        test_df = rel.import_line_level_df(
+            PREPROCESSED_DATA_SAVE_DIR)  # Assuming import_line_level_df is correctly imported
 
         test_code, train_label = prepare_data(test_df, True)  # Assuming prepare_data is correctly imported
 
-        word2vec_model = import_word2vec_model(train_release.project_name)
+        word2vec_model = GensimWord2VecModel(
+            line_level_dataset_generator=train_release,
+            dataset_name=train_release.project_name
+        ).import_model()
+
         # Create Word2Vec embeddings for the code
         test_embeddings = []
         for code in test_code:
@@ -95,6 +105,6 @@ def predict_defective_files_in_releases(train_release, eval_releases):
         result_df['file-level-ground-truth'] = train_label
         result_df['prediction-label'] = Y_pred
 
-        result_df.to_csv(os.path.join(MLP_SAVE_PREDICTION_DIR, rel.release + '.csv'), index=False)
+        result_df.to_csv(os.path.join(MLP_SAVE_PREDICTION_DIR, rel.release_name + '.csv'), index=False)
 
         print('finish', rel)
