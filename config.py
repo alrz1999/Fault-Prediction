@@ -6,10 +6,11 @@ import os
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # Define other project-related constants here, if needed
-DATA_ROOT_DIR = os.path.join(PROJECT_ROOT, 'datasets', 'original')
-DATE_SAVE_DIR = os.path.join(PROJECT_ROOT, 'datasets', 'preprocessed_data')
-FILE_LEVEL_DATA_DIR = os.path.join(DATA_ROOT_DIR, 'File-level')
-LINE_LEVEL_DATA_DIR = os.path.join(DATA_ROOT_DIR, 'Line-level')
+ORIGINAL_DATA_ROOT_DIR = os.path.join(PROJECT_ROOT, 'datasets', 'original')
+ORIGINAL_FILE_LEVEL_DATA_DIR = os.path.join(ORIGINAL_DATA_ROOT_DIR, 'File-level')
+ORIGINAL_BUGGY_LINES_DATA_DIR = os.path.join(ORIGINAL_DATA_ROOT_DIR, 'Line-level')
+
+PREPROCESSED_DATA_SAVE_DIR = os.path.join(PROJECT_ROOT, 'datasets', 'preprocessed_data')
 
 # Define paths for saving models and predictions
 BOW_SAVE_MODEL_DIR = os.path.join(PROJECT_ROOT, 'output', 'model', 'BoW')
