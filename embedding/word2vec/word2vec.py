@@ -27,8 +27,8 @@ class GensimWord2VecModel(EmbeddingModel):
         return gensim.models.Word2Vec.load(self.get_save_path())
 
     def train_model(self):
-        all_texts = self.line_level_dataset_generator.get_all_lines_tokens()
-        word2vec = Word2Vec(all_texts, vector_size=self.embedding_dimension, min_count=1, sorted_vocab=1)
+        line_tokens = self.line_level_dataset_generator.get_all_lines_tokens()
+        word2vec = Word2Vec(line_tokens, vector_size=self.embedding_dimension, min_count=1, sorted_vocab=1)
         return word2vec
 
     def get_save_path(self):
