@@ -4,48 +4,115 @@ import os
 import re
 import more_itertools
 
-from data.utils import CommentDetector, preprocess_code_line, is_empty_line, get_file_level_dataset_path, \
-    get_line_level_dataset_path
+from data.utils import CommentDetector, preprocess_code_line, is_empty_line, get_buggy_lines_dataset_path
 
 
-class Project:
 class FileLevelDatasetGenerator:
+    def __init__(self, file_level_dataset_dir):
+        self.file_level_dataset_dir = file_level_dataset_dir
+
+    def get_file_level_dataset(self):
+        imported_df = self.import_file_level_dataset()
+        if imported_df:
+            return imported_df
+        return self.generate_file_level_dataset()
+
     def generate_file_level_dataset(self):
-        pass
+        raise NotImplementedError()
 
     def export_file_level_dataset(self):
-        pass
+        raise NotImplementedError()
 
     def import_file_level_dataset(self):
-        pass
+        raise NotImplementedError()
 
     def get_file_level_dataset_path(self, save_dir):
-        pass
+        raise NotImplementedError()
 
 
 class LineLevelDatasetGenerator:
-    def __init__(self, save_dir):
-        self.save_dir = save_dir
+    def __init__(self, line_level_dataset_save_dir):
+        self.line_level_dataset_save_dir = line_level_dataset_save_dir
 
-    def get_line_level_dataset(self):
-        imported_df = self.import_line_level_dataset()
-        if imported_df:
-            return imported_df
-        return self.generate_line_level_dataset()
+    def get_line_level_dataset(self, replace_na_with_empty=False, return_blank_lines=True, return_test_file_lines=True):
+        df = self.import_line_level_dataset()
+        if df is None:
+            df = self.generate_line_level_dataset()
+
+        if replace_na_with_empty:
+            df = df.fillna('')
+        if not return_blank_lines:
+            df = df[df['is_blank'] == False]
+        if not return_test_file_lines:
+            df = df[df['is_test_file'] == False]
+
+        return df
 
     def generate_line_level_dataset(self):
-        raise Exception()
+        raise NotImplementedError()
 
     def export_line_level_dataset(self):
-        pass
+        if not os.path.exists(self.line_level_dataset_save_dir):
+            os.makedirs(self.line_level_dataset_save_dir)
 
     def import_line_level_dataset(self):
-        pass
+        try:
+            file_path = self.get_line_level_dataset_path()
+            return pd.read_csv(file_path, encoding='latin')
+        except FileNotFoundError:
+            return None
 
     def get_line_level_dataset_path(self):
-        pass
+        raise NotImplementedError()
+
+    def get_all_lines(self):
+        df = self.get_line_level_dataset(
+            replace_na_with_empty=True,
+            return_blank_lines=False,
+            return_test_file_lines=False
+        )
+        train_code_3d, _ = self.get_file_lines_tokens_and_labels(df, True)
+        all_texts = list(more_itertools.collapse(train_code_3d[:], levels=1))
+        return all_texts
+
+    def get_file_lines_tokens_and_labels(self, df, to_lowercase=False):
+        file_line_tokens = []
+        file_labels = []
+
+        for filename, group_df in df.groupby('filename'):
+            file_label = bool(group_df['file-label'].unique())
+
+            lines = list(group_df['code_line'])
+
+            file_code = self.get_line_tokens(lines, to_lowercase)
+            file_line_tokens.append(file_code)
+            file_labels.append(file_label)
+
+        return file_line_tokens, file_labels
+
+    def get_line_tokens(self, lines, to_lowercase=False, max_seq_len=50):
+        line_tokens = []
+
+        for line in lines:
+            line = re.sub('\\s+', ' ', line)
+
+            if to_lowercase:
+                line = line.lower()
+
+            tokens = line.strip().split()
+            tokens_count = len(tokens)
+
+            tokens = tokens[:max_seq_len]
+
+            if tokens_count < max_seq_len:
+                tokens = tokens + ['<pad>'] * (max_seq_len - tokens_count)
+
+            line_tokens.append(tokens)
+
+        return line_tokens
 
 
+class Project(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
                           'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1'
@@ -73,156 +140,115 @@ class LineLevelDatasetGenerator:
         'wicket': ['wicket-1.3.0-incubating-beta-1', 'wicket-1.3.0-beta2', 'wicket-1.5.3']
     }
 
-    def __init__(self, name):
+    def __init__(self, name, line_level_dataset_save_dir, file_level_dataset_dir):
+        LineLevelDatasetGenerator.__init__(self, line_level_dataset_save_dir)
+        FileLevelDatasetGenerator.__init__(self, file_level_dataset_dir)
         self.name = name
 
     @staticmethod
-    def get_project_releases(project_name):
+    def get_project_releases(project_name, line_level_dataset_save_dir, file_level_dataset_save_dir):
         project_releases = []
-        for release in Project.releases_by_project_name[project_name]:
-            project_release = ProjectRelease(project_name, release)
+        for release_name in Project.releases_by_project_name[project_name]:
+            project_release = ProjectRelease(
+                project_name=project_name,
+                release_name=release_name,
+                line_level_bug_repository=LineLevelBugRepository(release_name),
+                line_level_dataset_save_dir=line_level_dataset_save_dir,
+                file_level_dataset_save_dir=file_level_dataset_save_dir
+            )
             project_releases.append(project_release)
         return project_releases
 
-    def export_line_level_dfs(self, save_dir):
-        for release in Project.releases_by_project_name[self.name]:
-            project_release = ProjectRelease(self.name, release)
-            but_repository = BugRepository(project_release)
-            project_release.export_line_level_df(but_repository, save_dir)
+    def generate_line_level_dataset(self):
+        all_dataframes = []
+        project_releases = Project.get_project_releases(
+            project_name=self.name,
+            line_level_dataset_save_dir=self.line_level_dataset_save_dir,
+            file_level_dataset_save_dir=self.file_level_dataset_dir
+        )
 
-    def import_line_level_dfs(self, save_dir):
-        df_by_release = {}
-        for release in Project.releases_by_project_name[self.name]:
-            df_by_release[release] = ProjectRelease.import_line_level_df(release, save_dir)
+        for project_release in project_releases:
+            df = project_release.get_line_level_dataset()
+            all_dataframes.append(df)
 
-        return df_by_release
+        aggregated_dataframe = pd.concat(all_dataframes, ignore_index=True)
 
-    def import_train_release_line_level_df(self, save_dir):
-        train_release = self.get_train_release()
-        return train_release.import_line_level_df(save_dir)
+        return aggregated_dataframe
+
+    def get_line_level_dataset_path(self):
+        return os.path.join(self.line_level_dataset_save_dir, self.name + ".csv")
 
     def get_train_release(self):
         train_release = Project.all_train_releases[self.name]
-        return ProjectRelease(self.name, train_release)
+        return ProjectRelease(
+            line_level_dataset_save_dir=self.line_level_dataset_save_dir,
+            project_name=self.name,
+            release_name=train_release,
+            line_level_bug_repository=LineLevelBugRepository(train_release)
+        )
 
     def get_eval_releases(self):
         eval_releases = Project.all_eval_releases[self.name]
         output = []
         for release in eval_releases:
             output.append(
-                ProjectRelease(self.name, release)
+                ProjectRelease(
+                    line_level_dataset_save_dir=self.line_level_dataset_save_dir,
+                    project_name=self.name,
+                    release_name=release,
+                    line_level_bug_repository=LineLevelBugRepository(release)
+                )
             )
 
         return output
 
 
-class ProjectRelease:
-    def __init__(self, project_name, release):
-        self.project_name = project_name
-        self.release = release
+class ProjectRelease(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
+    def __init__(self, project_name, release_name, line_level_dataset_save_dir=None, file_level_dataset_save_dir=None,
+                 line_level_bug_repository=None, file_level_bug_repository=None):
 
-    def export_line_level_df(self, bug_repository, save_dir):
+        LineLevelDatasetGenerator.__init__(self, line_level_dataset_save_dir)
+        FileLevelDatasetGenerator.__init__(self, file_level_dataset_save_dir)
+        self.project_name = project_name
+        self.release_name = release_name
+        self.line_level_bug_repository = line_level_bug_repository
+        self.file_level_bug_repository = file_level_bug_repository
+
+    def export_line_level_dataset(self):
+        super().export_line_level_dataset()
+
         preprocessed_df_list = []
-        for source_code_file in self.create_source_code_files():
+        source_code_files = SourceCodeFile.from_file_level_dataset(
+            file_level_dataset=self.get_file_level_dataset(),
+            line_level_dataset_save_dir=self.line_level_dataset_save_dir,
+            line_level_bug_repository=self.line_level_bug_repository
+        )
+
+        for source_code_file in source_code_files:
             source_code_file: SourceCodeFile
-            code_df = source_code_file.create_line_level_code_df(bug_repository)
+            code_df = source_code_file.get_line_level_dataset()
             if len(code_df) != 0:
                 preprocessed_df_list.append(code_df)
 
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
         all_df = pd.concat(preprocessed_df_list)
-        all_df.to_csv(save_dir + self.release + ".csv", index=False)
-        print('finish release {}'.format(self.release))
+        all_df.to_csv(self.get_line_level_dataset_path(), index=False)
+        print('finish release {}'.format(self.release_name))
 
-    def create_source_code_files(self):
-        return SourceCodeFile.create_source_code_files(
-            get_file_level_dataset_path(self.release)
-        )
-
-    def import_line_level_df(self, save_dir):
-        # TODO
-        file_path = os.path.join(save_dir, self.release + ".csv")
-        df = pd.read_csv(file_path, encoding='latin')
-        df = df.fillna('')
-
-        df = df[df['is_blank'] == False]
-        df = df[df['is_test_file'] == False]
-        return df
-
-    def get_buggy_filenames(self):
-        source_code_files = self.create_source_code_files()
-        return {file.filename for file in source_code_files if file.is_buggy}
-
-    def get_all_lines(self, save_dir):
-        df = self.import_line_level_df(save_dir)
-        df = df.fillna('')
-        df = df[df['is_blank'] == False]
-        df = df[df['is_test_file'] == False]
-        train_code_3d, _ = self.get_code3d_and_label(df, True)
-        all_texts = list(more_itertools.collapse(train_code_3d[:], levels=1))
-        return all_texts
-
-    def get_code3d_and_label(self, df, to_lowercase=False):
-        '''
-            input
-                df (DataFrame): a dataframe from get_df()
-            output
-                code3d (nested list): a list of code2d from prepare_code2d()
-                all_file_label (list): a list of file-level label
-        '''
-
-        code3d = []
-        all_file_label = []
-
-        for filename, group_df in df.groupby('filename'):
-            file_label = bool(group_df['file-label'].unique())
-
-            code = list(group_df['code_line'])
-
-            code2d = self.prepare_code2d(code, to_lowercase)
-            code3d.append(code2d)
-
-            all_file_label.append(file_label)
-
-        return code3d, all_file_label
-
-    def prepare_code2d(self, code_list, to_lowercase=False, max_seq_len=50):
-        '''
-            input
-                code_list (list): list that contains code each line (in str format)
-            output
-                code2d (nested list): a list that contains list of tokens with padding by '<pad>'
-        '''
-        code2d = []
-
-        for c in code_list:
-            c = re.sub('\\s+', ' ', c)
-
-            if to_lowercase:
-                c = c.lower()
-
-            token_list = c.strip().split()
-            total_tokens = len(token_list)
-
-            token_list = token_list[:max_seq_len]
-
-            if total_tokens < max_seq_len:
-                token_list = token_list + ['<pad>'] * (max_seq_len - total_tokens)
-
-            code2d.append(token_list)
-
-        return code2d
+    def get_line_level_dataset_path(self):
+        return os.path.join(self.line_level_dataset_save_dir, self.release_name + ".csv")
 
 
-class BugRepository:
-    def __init__(self, project_release):
-        self.buggy_filenames = project_release.get_buggy_filenames()
-        self.line_level_df = pd.read_csv(get_line_level_dataset_path(project_release.release), encoding='latin')
+class FileLevelBugRepository:
+    def __init__(self, buggy_filenames):
+        self.buggy_filenames = buggy_filenames
 
     def is_buggy_file(self, filename):
         return filename in self.buggy_filenames
+
+
+class LineLevelBugRepository:
+    def __init__(self, release):
+        self.line_level_df = pd.read_csv(get_buggy_lines_dataset_path(release), encoding='latin')
 
     def get_file_buggy_lines(self, filename):
         return list(
@@ -230,18 +256,19 @@ class BugRepository:
         )
 
 
-class SourceCodeFile:
-    def __init__(self, filename, code, is_buggy):
+class SourceCodeFile(LineLevelDatasetGenerator):
+    def __init__(self, filename, code, is_buggy, line_level_dataset_save_dir, line_level_bug_repository=None):
+        super().__init__(line_level_dataset_save_dir)
         self.filename = filename
         self.code = code
         self.is_buggy = is_buggy
+        self.line_level_bug_repository = line_level_bug_repository
 
     @staticmethod
-    def create_source_code_files(release_path):
-        df = pd.read_csv(release_path, encoding='latin')
-        df = df.fillna('')
+    def from_file_level_dataset(file_level_dataset, line_level_dataset_save_dir, line_level_bug_repository):
+        file_level_dataset = file_level_dataset.fillna('')
         source_code_files = []
-        for idx, row in df.iterrows():
+        for idx, row in file_level_dataset.iterrows():
             filename = row['File']
             if '.java' not in filename:
                 continue
@@ -250,13 +277,15 @@ class SourceCodeFile:
             source_code_file = SourceCodeFile(
                 filename=filename,
                 code=code,
-                is_buggy=is_buggy_file
+                is_buggy=is_buggy_file,
+                line_level_dataset_save_dir=line_level_dataset_save_dir,
+                line_level_bug_repository=line_level_bug_repository
             )
 
             source_code_files.append(source_code_file)
         return source_code_files
 
-    def create_line_level_code_df(self, bug_repository):
+    def generate_line_level_dataset(self):
         """
             output
                 code_df (DataFrame): a dataframe of source code that contains the following columns
@@ -302,8 +331,8 @@ class SourceCodeFile:
         df['file-label'] = [self.is_buggy] * len(code_lines)
         df['line-label'] = [False] * len(code_lines)
 
-        if bug_repository.is_buggy_file(self.filename):
-            buggy_lines = bug_repository.get_file_buggy_lines(self.filename)
+        if self.is_buggy:
+            buggy_lines = self.line_level_bug_repository.get_file_buggy_lines(self.filename)
             df['line-label'] = df['line_number'].isin(buggy_lines)
 
         return df

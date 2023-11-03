@@ -1,14 +1,15 @@
+import os.path
 import re
 
-from config import FILE_LEVEL_DATA_DIR, LINE_LEVEL_DATA_DIR
+from config import ORIGINAL_FILE_LEVEL_DATA_DIR, ORIGINAL_BUGGY_LINES_DATA_DIR
 
 
 def get_file_level_dataset_path(release):
-    return FILE_LEVEL_DATA_DIR + release + '_ground-truth-files_dataset.csv'
+    return os.path.join(ORIGINAL_FILE_LEVEL_DATA_DIR, release + '_ground-truth-files_dataset.csv')
 
 
-def get_line_level_dataset_path(release):
-    return LINE_LEVEL_DATA_DIR + release + '_defective_lines_dataset.csv'
+def get_buggy_lines_dataset_path(release):
+    return os.path.join(ORIGINAL_BUGGY_LINES_DATA_DIR, release + '_defective_lines_dataset.csv')
 
 
 CHAR_TO_REMOVE = ['+', '-', '*', '/', '=', '++', '--', '\\', '<str>', '<char>', '|', '&', '!']
