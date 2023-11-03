@@ -1,11 +1,7 @@
 import os.path
 import re
 
-from config import ORIGINAL_FILE_LEVEL_DATA_DIR, ORIGINAL_BUGGY_LINES_DATA_DIR
-
-
-def get_file_level_dataset_path(release):
-    return os.path.join(ORIGINAL_FILE_LEVEL_DATA_DIR, release + '_ground-truth-files_dataset.csv')
+from config import ORIGINAL_BUGGY_LINES_DATA_DIR
 
 
 def get_buggy_lines_dataset_path(release):

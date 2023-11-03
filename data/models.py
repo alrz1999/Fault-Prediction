@@ -13,7 +13,7 @@ class FileLevelDatasetGenerator:
 
     def get_file_level_dataset(self):
         imported_df = self.import_file_level_dataset()
-        if imported_df:
+        if imported_df is not None:
             return imported_df
         return self.generate_file_level_dataset()
 
@@ -24,7 +24,11 @@ class FileLevelDatasetGenerator:
         raise NotImplementedError()
 
     def import_file_level_dataset(self):
-        raise NotImplementedError()
+        try:
+            file_path = self.get_file_level_dataset_path(self.file_level_dataset_dir)
+            return pd.read_csv(file_path, encoding='latin')
+        except FileNotFoundError:
+            return None
 
     def get_file_level_dataset_path(self, save_dir):
         raise NotImplementedError()
@@ -184,7 +188,8 @@ class Project(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
             line_level_dataset_save_dir=self.line_level_dataset_save_dir,
             project_name=self.name,
             release_name=train_release,
-            line_level_bug_repository=LineLevelBugRepository(train_release)
+            line_level_bug_repository=LineLevelBugRepository(train_release),
+            file_level_dataset_save_dir=self.file_level_dataset_dir
         )
 
     def get_eval_releases(self):
@@ -236,6 +241,9 @@ class ProjectRelease(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
 
     def get_line_level_dataset_path(self):
         return os.path.join(self.line_level_dataset_save_dir, self.release_name + ".csv")
+
+    def get_file_level_dataset_path(self, save_dir):
+        return os.path.join(self.file_level_dataset_dir, self.release_name + '_ground-truth-files_dataset.csv')
 
 
 class FileLevelBugRepository:
