@@ -65,15 +65,15 @@ class LineLevelDatasetGenerator:
     def get_line_level_dataset_path(self):
         raise NotImplementedError()
 
-    def get_all_lines(self):
+    def get_all_lines_tokens(self):
         df = self.get_line_level_dataset(
             replace_na_with_empty=True,
             return_blank_lines=False,
             return_test_file_lines=False
         )
-        train_code_3d, _ = self.get_file_lines_tokens_and_labels(df, True)
-        all_texts = list(more_itertools.collapse(train_code_3d[:], levels=1))
-        return all_texts
+        file_lines_tokens, _ = self.get_file_lines_tokens_and_labels(df, True)
+        all_line_tokens = list(more_itertools.collapse(file_lines_tokens[:], levels=1))
+        return all_line_tokens
 
     def get_file_lines_tokens_and_labels(self, df, to_lowercase=False):
         file_line_tokens = []

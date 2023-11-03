@@ -8,8 +8,8 @@ def main():
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )
-    all_texts = project.get_train_release().get_all_lines()
-    print(all_texts[101])
+    lines_tokens = project.get_train_release().get_all_lines_tokens()
+    print(lines_tokens[0])
 
 
 if __name__ == '__main__':
