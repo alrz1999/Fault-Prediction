@@ -1,6 +1,6 @@
-# token_extraction.py
-import javalang
 import re
+
+import javalang
 
 
 class TokenExtractor:
@@ -40,13 +40,10 @@ class CFGTokenExtractor(TokenExtractor):
 
 class ASTTokenExtractor(TokenExtractor):
     def extract_tokens(self, input_text):
-        # Parse the input Java code
         tree = javalang.parse.parse(input_text)
 
-        # Initialize an empty list to store the tokens
         tokens = []
 
-        # Define a function to recursively traverse the AST and extract tokens
         def traverse(node):
             if isinstance(node, javalang.parser.tree.VariableDeclarator):
                 pass
@@ -127,9 +124,21 @@ def test():
         }
     }
     """
-    extractor = ASTTokenExtractor()
-    tokens = extractor.tokenize(input_text)
-    print(tokens)
+    tree = javalang.parse.parse(input_text)
+    for path, node in tree:
+        print("----------------------------------------------------")
+
+        print(type(path), len(path))
+        for x in path:
+            if isinstance(x, list):
+                print([type(y) for y in x])
+            else:
+                print(type(x))
+        print(type(node))
+        print(node)
+        print(node.children)
+        print(node.position)
+        print("----------------------------------------------------")
 
 
 if __name__ == "__main__":
