@@ -1,3 +1,6 @@
+import tensorflow as tf
+
+
 def get_code_str(code, to_lowercase):
     '''
         input
@@ -38,3 +41,12 @@ def prepare_data(df, to_lowercase=False):
         all_file_label.append(file_label)
 
     return all_code_str, all_file_label
+
+
+def create_tensorflow_dataset(data, batch_size=None, shuffle=False):
+    dataset = tf.data.Dataset.from_tensor_slices((data['text'].values, data['label'].values))
+    if shuffle:
+        dataset = dataset.shuffle(len(data))
+    if batch_size is not None:
+        dataset = dataset.batch(batch_size)
+    return dataset

@@ -114,6 +114,9 @@ class MLPBaseLineClassifier(ClassifierModel):
             result_df['file-level-ground-truth'] = train_label
             result_df['prediction-label'] = Y_pred
 
-            result_df.to_csv(os.path.join(MLP_SAVE_PREDICTION_DIR, rel.release_name + '.csv'), index=False)
+            result_df.to_csv(self.get_result_dataset_path(rel.release_name), index=False)
 
             print('finish', rel.release_name)
+
+    def get_result_dataset_path(self, dataset_name):
+        return os.path.join(MLP_SAVE_PREDICTION_DIR, dataset_name + '.csv')

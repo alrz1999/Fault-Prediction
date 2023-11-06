@@ -70,16 +70,17 @@ class LineLevelDatasetGenerator:
         raise NotImplementedError()
 
     def get_all_lines_tokens(self):
+        file_lines_tokens, _ = self.get_file_lines_tokens_and_labels(True)
+        all_line_tokens = list(more_itertools.collapse(file_lines_tokens[:], levels=1))
+        return all_line_tokens
+
+    def get_file_lines_tokens_and_labels(self, to_lowercase=False):
         df = self.get_line_level_dataset(
             replace_na_with_empty=True,
             return_blank_lines=False,
             return_test_file_lines=False
         )
-        file_lines_tokens, _ = self.get_file_lines_tokens_and_labels(df, True)
-        all_line_tokens = list(more_itertools.collapse(file_lines_tokens[:], levels=1))
-        return all_line_tokens
 
-    def get_file_lines_tokens_and_labels(self, df, to_lowercase=False):
         file_line_tokens = []
         file_labels = []
 
@@ -114,6 +115,19 @@ class LineLevelDatasetGenerator:
             line_tokens.append(tokens)
 
         return line_tokens
+
+    def get_output_dataset(self):
+        selected_columns = ['code_line', 'line-label']
+        df = self.get_line_level_dataset(True, False, False)
+        df = df[selected_columns]
+
+        column_name_mapping = {
+            'code_line': 'text',
+            'line-label': 'label'
+        }
+
+        df = df.rename(columns=column_name_mapping)
+        return df
 
 
 class Project(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
