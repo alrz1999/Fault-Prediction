@@ -110,3 +110,27 @@ class KerasClassifier(ClassifierModel):
         test_ds = test_ds.cache().prefetch(buffer_size=10)
 
         self.model.evaluate(test_ds)
+
+    def get_end_to_end_model(self):
+        model = self.model
+        # A string input
+        inputs = tf.keras.Input(shape=(1,), dtype="string")
+        # Turn strings into vocab indices
+        indices = self.vectorize_layer(inputs)
+        # Turn vocab indices into predictions
+        outputs = model(indices)
+
+        # Our end to end model
+        end_to_end_model = tf.keras.Model(inputs, outputs)
+        end_to_end_model.compile(
+            loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"]
+        )
+        return end_to_end_model
+
+    def evaluate_end_to_end_model(self, test_df, batch_size=32):
+        end_to_end_model = self.get_end_to_end_model()
+
+        test_ds = create_tensorflow_dataset(test_df, batch_size=batch_size)
+        print(f"Number of batches in raw_test_ds: {test_ds.cardinality()}")
+
+        end_to_end_model.evaluate(test_ds)
