@@ -24,3 +24,38 @@ data gathering
 
 
 data ----> embedding ----> model
+
+
+
+Project(Project Name, git version control system)
+    ProjectRelease(Release Name, git version control system)
+        Source Code File(Filename, Source Code, git version control system)
+            Class or Interface(Source Code, External RelationShip, Statistic and handcrafted metrics, AST, CFG)
+                Method(Source Code, Statistic and handcrafted metrics, AST)
+                    Line(Source Code, Statistic and handcrafted metrics)
+                Line(Source Code, Statistic and handcrafted metrics)
+            Line(Source Code, Statistic and handcrafted metrics)
+
+We can perform within project analysis using release based SDP and then compare our cross project result with within project result
+
+
+
+
+
+
+What we want from our ready to train dataset?
+    df(Source Code)
+    df(Source Code, Source Code Embedding Vector)
+    df(Source Code, Source Code Embedding Vector, is_buggy)
+    df(Source Code, Source Code Embedding Vector, is_buggy, AST Embedding Vector)
+    df(Source Code, Source Code Embedding Vector, is_buggy, AST Embedding Vector, External Graph Embedding Vector)
+    df(Source Code, Source Code Embedding Vector, is_buggy, AST Embedding Vector, External Graph Embedding Vector)
+    df(Source Code, Source Code Embedding Vector, is_buggy, AST Embedding Vector, External Graph Embedding Vector, Statistic and handcrafted metrics)
+
+
+
+
+
+
+If we have something like pipeline that add columns to dataset wanted by model we will be ok
+

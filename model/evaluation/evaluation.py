@@ -1,5 +1,7 @@
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, balanced_accuracy_score, matthews_corrcoef, roc_curve
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, \
+    balanced_accuracy_score, matthews_corrcoef, roc_curve
+
 
 def evaluate(true_labels, predicted_labels):
     accuracy = accuracy_score(true_labels, predicted_labels)

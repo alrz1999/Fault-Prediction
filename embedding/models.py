@@ -7,11 +7,17 @@ class EmbeddingModel:
         if not os.path.exists(WORD2VEC_DIR):
             os.makedirs(WORD2VEC_DIR)
 
-    def import_model(self):
+    @classmethod
+    def import_model(cls, dataset_name, **kwargs):
         raise NotImplementedError()
 
-    def train_model(self):
+    @classmethod
+    def train(cls, data, **kwargs):
         raise NotImplementedError()
 
-    def get_save_path(self):
+    @classmethod
+    def get_model_save_path(cls, dataset_name, **kwargs):
+        raise NotImplementedError()
+
+    def get_embeddings(self, data):
         raise NotImplementedError()

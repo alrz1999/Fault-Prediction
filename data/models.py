@@ -1,136 +1,11 @@
 import numpy as np
 import pandas as pd
 import os
-import re
-import more_itertools
 
 from data.utils import CommentDetector, preprocess_code_line, is_empty_line, get_buggy_lines_dataset_path
 
 
-class FileLevelDatasetGenerator:
-    def __init__(self, file_level_dataset_dir):
-        self.file_level_dataset_dir = file_level_dataset_dir
-
-    def get_file_level_dataset(self):
-        imported_df = self.import_file_level_dataset()
-        if imported_df is not None:
-            return imported_df
-        return self.generate_file_level_dataset()
-
-    def generate_file_level_dataset(self):
-        raise NotImplementedError()
-
-    def export_file_level_dataset(self):
-        raise NotImplementedError()
-
-    def import_file_level_dataset(self):
-        try:
-            file_path = self.get_file_level_dataset_path(self.file_level_dataset_dir)
-            return pd.read_csv(file_path, encoding='latin')
-        except FileNotFoundError:
-            return None
-
-    def get_file_level_dataset_path(self, save_dir):
-        raise NotImplementedError()
-
-
-class LineLevelDatasetGenerator:
-    def __init__(self, line_level_dataset_save_dir):
-        self.line_level_dataset_save_dir = line_level_dataset_save_dir
-
-    def get_line_level_dataset(self, replace_na_with_empty=False, return_blank_lines=True, return_test_file_lines=True):
-        df = self.import_line_level_dataset()
-        if df is None:
-            df = self.generate_line_level_dataset()
-
-        if replace_na_with_empty:
-            df = df.fillna('')
-        if not return_blank_lines:
-            df = df[df['is_blank'] == False]
-        if not return_test_file_lines:
-            df = df[df['is_test_file'] == False]
-
-        return df
-
-    def generate_line_level_dataset(self):
-        raise NotImplementedError()
-
-    def export_line_level_dataset(self):
-        if not os.path.exists(self.line_level_dataset_save_dir):
-            os.makedirs(self.line_level_dataset_save_dir)
-
-    def import_line_level_dataset(self):
-        try:
-            file_path = self.get_line_level_dataset_path()
-            return pd.read_csv(file_path, encoding='latin')
-        except FileNotFoundError:
-            return None
-
-    def get_line_level_dataset_path(self):
-        raise NotImplementedError()
-
-    def get_all_lines_tokens(self):
-        file_lines_tokens, _ = self.get_file_lines_tokens_and_labels(True)
-        all_line_tokens = list(more_itertools.collapse(file_lines_tokens[:], levels=1))
-        return all_line_tokens
-
-    def get_file_lines_tokens_and_labels(self, to_lowercase=False):
-        df = self.get_line_level_dataset(
-            replace_na_with_empty=True,
-            return_blank_lines=False,
-            return_test_file_lines=False
-        )
-
-        file_line_tokens = []
-        file_labels = []
-
-        for filename, group_df in df.groupby('filename'):
-            file_label = bool(group_df['file-label'].unique())
-
-            lines = list(group_df['code_line'])
-
-            file_code = self.get_line_tokens(lines, to_lowercase)
-            file_line_tokens.append(file_code)
-            file_labels.append(file_label)
-
-        return file_line_tokens, file_labels
-
-    def get_line_tokens(self, lines, to_lowercase=False, max_seq_len=50):
-        line_tokens = []
-
-        for line in lines:
-            line = re.sub('\\s+', ' ', line)
-
-            if to_lowercase:
-                line = line.lower()
-
-            tokens = line.strip().split()
-            tokens_count = len(tokens)
-
-            tokens = tokens[:max_seq_len]
-
-            if tokens_count < max_seq_len:
-                tokens = tokens + ['<pad>'] * (max_seq_len - tokens_count)
-
-            line_tokens.append(tokens)
-
-        return line_tokens
-
-    def get_output_dataset(self):
-        selected_columns = ['code_line', 'line-label']
-        df = self.get_line_level_dataset(True, False, False)
-        df = df[selected_columns]
-
-        column_name_mapping = {
-            'code_line': 'text',
-            'line-label': 'label'
-        }
-
-        df = df.rename(columns=column_name_mapping)
-        return df
-
-
-class Project(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
+class Project:
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
                           'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1'
@@ -159,8 +34,8 @@ class Project(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
     }
 
     def __init__(self, name, line_level_dataset_save_dir, file_level_dataset_dir):
-        LineLevelDatasetGenerator.__init__(self, line_level_dataset_save_dir)
-        FileLevelDatasetGenerator.__init__(self, file_level_dataset_dir)
+        self.line_level_dataset_save_dir = line_level_dataset_save_dir
+        self.file_level_dataset_dir = file_level_dataset_dir
         self.name = name
 
     @staticmethod
@@ -177,7 +52,7 @@ class Project(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
             project_releases.append(project_release)
         return project_releases
 
-    def generate_line_level_dataset(self):
+    def get_line_level_dataset(self):
         all_dataframes = []
         project_releases = Project.get_project_releases(
             project_name=self.name,
@@ -195,6 +70,10 @@ class Project(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
 
     def get_line_level_dataset_path(self):
         return os.path.join(self.line_level_dataset_save_dir, self.name + ".csv")
+
+    def get_file_level_dataset_path(self):
+        # TODO
+        return os.path.join(self.file_level_dataset_dir, )
 
     def get_train_release(self):
         train_release = Project.all_train_releases[self.name]
@@ -222,20 +101,32 @@ class Project(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
         return output
 
 
-class ProjectRelease(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
+class ProjectRelease:
     def __init__(self, project_name, release_name, line_level_dataset_save_dir=None, file_level_dataset_save_dir=None,
                  line_level_bug_repository=None, file_level_bug_repository=None):
 
-        LineLevelDatasetGenerator.__init__(self, line_level_dataset_save_dir)
-        FileLevelDatasetGenerator.__init__(self, file_level_dataset_save_dir)
+        self.line_level_dataset_save_dir = line_level_dataset_save_dir
+        self.file_level_dataset_dir = file_level_dataset_save_dir
         self.project_name = project_name
         self.release_name = release_name
         self.line_level_bug_repository = line_level_bug_repository
         self.file_level_bug_repository = file_level_bug_repository
 
-    def export_line_level_dataset(self):
-        super().export_line_level_dataset()
+    def get_file_level_dataset(self):
+        try:
+            file_path = self.get_file_level_dataset_path()
+            return pd.read_csv(file_path, encoding='latin')
+        except FileNotFoundError:
+            return None
 
+    def get_line_level_dataset(self):
+        try:
+            file_path = self.get_line_level_dataset_path()
+            return pd.read_csv(file_path, encoding='latin')
+        except FileNotFoundError:
+            return None
+
+    def export_line_level_dataset(self):
         preprocessed_df_list = []
         source_code_files = SourceCodeFile.from_file_level_dataset(
             file_level_dataset=self.get_file_level_dataset(),
@@ -256,7 +147,7 @@ class ProjectRelease(LineLevelDatasetGenerator, FileLevelDatasetGenerator):
     def get_line_level_dataset_path(self):
         return os.path.join(self.line_level_dataset_save_dir, self.release_name + ".csv")
 
-    def get_file_level_dataset_path(self, save_dir):
+    def get_file_level_dataset_path(self):
         return os.path.join(self.file_level_dataset_dir, self.release_name + '_ground-truth-files_dataset.csv')
 
 
@@ -278,9 +169,9 @@ class LineLevelBugRepository:
         )
 
 
-class SourceCodeFile(LineLevelDatasetGenerator):
+class SourceCodeFile:
     def __init__(self, filename, code, is_buggy, line_level_dataset_save_dir, line_level_bug_repository=None):
-        super().__init__(line_level_dataset_save_dir)
+        self.line_level_dataset_save_dir = line_level_dataset_save_dir
         self.filename = filename
         self.code = code
         self.is_buggy = is_buggy
@@ -307,7 +198,7 @@ class SourceCodeFile(LineLevelDatasetGenerator):
             source_code_files.append(source_code_file)
         return source_code_files
 
-    def generate_line_level_dataset(self):
+    def get_line_level_dataset(self):
         """
             output
                 code_df (DataFrame): a dataframe of source code that contains the following columns
