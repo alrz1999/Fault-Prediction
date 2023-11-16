@@ -8,7 +8,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
 from config import MLP_SAVE_MODEL_DIR, MLP_SAVE_PREDICTION_DIR
-from model.models import ClassifierModel
+from classification.models import ClassifierModel
 
 
 class MLPBaseLineClassifier(ClassifierModel):

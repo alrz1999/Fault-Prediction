@@ -1,4 +1,4 @@
-from model.evaluation.evaluation import evaluate
+from classification.evaluation.evaluation import evaluate
 from pipeline.pipeline import PipelineStage, log_method_execution
 
 

@@ -1,7 +1,3 @@
-from model.evaluation.evaluation import evaluate
-import pandas as pd
-
-
 class ClassifierModel:
 
     @classmethod

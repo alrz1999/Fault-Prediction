@@ -1,8 +1,8 @@
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project
-from model.custom.custom_model import KerasClassifier
-from model.mlp.mlp_baseline import MLPBaseLineClassifier
-from model.BoW.BoW_baseline import (BOWBaseLineClassifier)
+from classification.custom.custom_model import KerasClassifier
+from classification.mlp.mlp_baseline import MLPBaseLineClassifier
+from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 
 from embedding.word2vec.word2vec import GensimWord2VecModel
 from pipeline.classification.classifier import TrainingClassifierStage, PredictingClassifierStage

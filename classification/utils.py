@@ -3,13 +3,13 @@ import tensorflow as tf
 
 class LineLevelToFileLevelDatasetMapper:
     def get_code_str(self, code, to_lowercase):
-        '''
+        """
             input
                 code (list): a list of code lines from dataset
                 to_lowercase (bool)
             output
                 code_str: a code in string format
-        '''
+        """
 
         code_str = '\n'.join(code)
 

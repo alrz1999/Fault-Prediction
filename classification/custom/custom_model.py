@@ -7,8 +7,8 @@ from sklearn.model_selection import train_test_split
 from tensorflow import keras
 
 from config import KERAS_SAVE_PREDICTION_DIR
-from model.models import ClassifierModel
-from model.utils import create_tensorflow_dataset
+from classification.models import ClassifierModel
+from classification.utils import create_tensorflow_dataset
 
 
 class CustomModel:

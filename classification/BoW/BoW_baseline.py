@@ -9,7 +9,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 
 from config import BOW_SAVE_MODEL_DIR, BOW_SAVE_PREDICTION_DIR
-from model.models import ClassifierModel
+from classification.models import ClassifierModel
 
 
 class BOWBaseLineClassifier(ClassifierModel):

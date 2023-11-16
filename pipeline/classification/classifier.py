@@ -1,6 +1,6 @@
 import pandas as pd
 
-from model.models import ClassifierModel
+from classification.models import ClassifierModel
 from pipeline.pipeline import PipelineStage, log_method_execution
 
 

@@ -1,6 +1,5 @@
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from data.models import Project
-from data.utils import LineLevelDatasetHelper
 from pipeline.data.line_level import LineLevelDatasetLoaderStage, LineLevelTokenizerStage
 from pipeline.pipeline import Pipeline
 

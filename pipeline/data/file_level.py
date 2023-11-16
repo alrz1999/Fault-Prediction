@@ -1,5 +1,5 @@
 from embedding.preprocessing.token_extraction import TokenExtractor
-from model.utils import LineLevelToFileLevelDatasetMapper
+from classification.utils import LineLevelToFileLevelDatasetMapper
 from pipeline.pipeline import PipelineStage, log_method_execution
 import pandas as pd
 
