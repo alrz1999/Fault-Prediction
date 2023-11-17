@@ -23,5 +23,8 @@ MLP_SAVE_PREDICTION_DIR = os.path.join(PROJECT_ROOT, 'output', 'prediction', 'ml
 # Define paths for saving models and predictions
 KERAS_SAVE_PREDICTION_DIR = os.path.join(PROJECT_ROOT, 'output', 'prediction', 'keras')
 
+# Define paths for saving models and predictions
+KERAS_CNN_SAVE_PREDICTION_DIR = os.path.join(PROJECT_ROOT, 'output', 'prediction', 'keras_cnn')
+
 # Define path for the Word2Vec model
 WORD2VEC_DIR = os.path.join(PROJECT_ROOT, 'output', 'Word2Vec_model')

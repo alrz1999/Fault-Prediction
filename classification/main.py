@@ -1,10 +1,11 @@
+from classification.cnn.cnn_baseline import KerasCNNClassifier
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project
 from classification.custom.custom_model import KerasClassifier
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 
-from embedding.word2vec.word2vec import GensimWord2VecModel
+from embedding.word2vec.word2vec import GensimWord2VecModel, GensimWord2VecModelIndexer
 from pipeline.classification.classifier import TrainingClassifierStage, PredictingClassifierStage
 from pipeline.data.file_level import LineLevelToFileLevelDatasetMapperStage
 from pipeline.data.line_level import LineLevelDatasetLoaderStage
@@ -110,6 +111,48 @@ def keras_classifier(project):
         output = Pipeline(prediction_classifier_stages).run()
 
 
+def keras_cnn_classifier(project):
+    embedding_stages = [
+        TrainingEmbeddingModelStage(GensimWord2VecModelIndexer, project.name, 50, import_data=True)
+    ]
+
+    embedding_model = Pipeline(embedding_stages).run()
+
+    training_classifier_stage = [
+        LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelToFileLevelDatasetMapperStage(),
+        EmbeddingColumnAdderStage(embedding_model),
+        TrainingClassifierStage(KerasCNNClassifier, project.get_train_release().release_name, training_metadata={
+            'max_features': len(embedding_model.model.wv.key_to_index) + 1,
+            'embedding_dim': 50,
+            'batch_size': 32,
+            'embedding_model': embedding_model
+        })
+    ]
+
+    classifier = Pipeline(training_classifier_stage).run()
+
+    for eval_release in project.get_eval_releases():
+        prediction_classifier_stages = [
+            LineLevelDatasetLoaderStage(eval_release.get_line_level_dataset_path()),
+            LineLevelToFileLevelDatasetMapperStage(),
+            EmbeddingColumnAdderStage(embedding_model),
+            PredictingClassifierStage(
+                classifier,
+                eval_release.release_name,
+                output_columns=['Bug'],
+                prediction_metadata={
+                    'batch_size': 32,
+                    'embedding_model': embedding_model
+                },
+                export_data=True
+            ),
+            EvaluationStage()
+        ]
+
+        output = Pipeline(prediction_classifier_stages).run()
+
+
 if __name__ == '__main__':
     project = Project(
         name="activemq",
@@ -117,6 +160,7 @@ if __name__ == '__main__':
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )
 
-    keras_classifier(project)
+    keras_cnn_classifier(project)
+    # keras_classifier(project)
     # bow_classifier(project)
     # mlp_classifier(project)

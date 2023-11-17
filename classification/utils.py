@@ -43,8 +43,11 @@ class LineLevelToFileLevelDatasetMapper:
         return all_code_str, all_file_label
 
 
-def create_tensorflow_dataset(data, batch_size=None, shuffle=False):
-    dataset = tf.data.Dataset.from_tensor_slices((data['SRC'].values, data['Bug'].values))
+def create_tensorflow_dataset(data, batch_size=None, shuffle=False, key_column='SRC'):
+    if key_column == 'embedding':
+        dataset = tf.data.Dataset.from_tensor_slices((tf.convert_to_tensor(data[key_column].tolist(), dtype=tf.int64), data['Bug'].values))
+    else:
+        dataset = tf.data.Dataset.from_tensor_slices((data[key_column].values, data['Bug'].values))
     if shuffle:
         dataset = dataset.shuffle(len(data))
     if batch_size is not None:

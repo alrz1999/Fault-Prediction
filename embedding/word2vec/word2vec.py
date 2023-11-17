@@ -27,7 +27,7 @@ class GensimWord2VecModel(EmbeddingModel):
         save_path = cls.get_model_save_path(dataset_name, **kwargs)
         embedding_dimension = kwargs.get('embedding_dimension', 50)
         model = gensim.models.Word2Vec.load(save_path)
-        return GensimWord2VecModel(model, dataset_name, embedding_dimension)
+        return cls(model, dataset_name, embedding_dimension)
 
     @classmethod
     def train(cls, data, **kwargs):
@@ -52,3 +52,29 @@ class GensimWord2VecModel(EmbeddingModel):
             code_embeddings = np.mean(code_embeddings, axis=0)
             embeddings.append(code_embeddings)
         return embeddings
+
+
+class GensimWord2VecModelIndexer(GensimWord2VecModel):
+    def get_embeddings(self, data):
+        padding_idx = self.model.wv.key_to_index['<pad>']
+
+        embeddings = []
+        for code in data:
+            code_embeddings = [
+                self.model.wv.key_to_index[word] if word in self.model.wv.key_to_index.keys() else len(self.model.wv.key_to_index) for word
+                in code.split()
+            ]
+
+            embeddings.append(code_embeddings)
+
+        max_seq_len = min(max([len(code_embedding) for code_embedding in embeddings]), 45000)
+
+        features = np.zeros((len(embeddings), max_seq_len), dtype=int)
+
+        for i, row in enumerate(embeddings):
+            if len(row) > max_seq_len:
+                features[i, :] = row[:max_seq_len]
+            else:
+                features[i, :] = row + [padding_idx] * (max_seq_len - len(row))
+
+        return features.tolist()
