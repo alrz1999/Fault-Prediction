@@ -14,6 +14,7 @@ def evaluate(true_labels, predicted_labels):
     print("Recall:", recall)
     print("F1-score:", f1)
     print("Confusion Matrix:\n", confusion)
+    print(f"count: {len(true_labels)}")
 
     # Calculate the AUC-ROC (for binary classification)
     fpr, tpr, thresholds = roc_curve(true_labels, predicted_labels)

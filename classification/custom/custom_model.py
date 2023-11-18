@@ -1,12 +1,16 @@
 import os
 
+import numpy as np
+import pandas as pd
 import tensorflow as tf
-from keras import layers
+from imblearn.over_sampling import SMOTE
+from keras import layers, Sequential
 from keras.layers import TextVectorization
+from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 
-from config import KERAS_SAVE_PREDICTION_DIR
+from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR
 from classification.models import ClassifierModel
 from classification.utils import create_tensorflow_dataset
 
@@ -154,3 +158,68 @@ class KerasClassifier(ClassifierModel):
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
         return os.path.join(KERAS_SAVE_PREDICTION_DIR, dataset_name + '.csv')
+
+
+class SimpleKerasClassifier(ClassifierModel):
+    def __init__(self, model, vectorizer):
+        self.model = model
+        self.vectorizer = vectorizer
+
+    @classmethod
+    def build_model(cls, input_dim):
+        model = Sequential()
+        model.add(layers.Dense(64, input_dim=input_dim, activation='relu'))
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(32, activation='relu'))
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(16, activation='relu'))
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(8, activation='relu'))
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(4, activation='relu'))
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(2, activation='relu'))
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(1, activation='sigmoid'))
+
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        model.summary()
+        return model
+
+    @classmethod
+    def train(cls, df, dataset_name, training_metadata=None):
+        codes, labels = df['SRC'], df['Bug']
+
+        vectorizer = CountVectorizer()
+        vectorizer.fit(codes)
+
+        X = pd.DataFrame(vectorizer.transform(codes).toarray())
+        Y = np.array([1 if label == True else 0 for label in labels])
+
+        sm = SMOTE(random_state=42)
+        X, Y = sm.fit_resample(X, Y)
+
+        model = cls.build_model(input_dim=X.shape[1])
+        history = model.fit(
+            X, Y,
+            epochs=50,
+            batch_size=10
+        )
+        cls.plot_history(history)
+
+        loss, accuracy = model.evaluate(X, Y, verbose=False)
+        print("Training Accuracy: {:.4f}".format(accuracy))
+
+        return SimpleKerasClassifier(model, vectorizer)
+
+    def predict(self, df, prediction_metadata=None):
+        test_code, labels = df['SRC'], df['Bug']
+
+        X = self.vectorizer.transform(test_code).toarray()
+
+        Y_pred = list(map(bool, list(self.model.predict(X))))
+        return Y_pred
+
+    @classmethod
+    def get_result_dataset_path(cls, dataset_name):
+        return os.path.join(SIMPLE_KERAS_PREDICTION_DIR, dataset_name + '.csv')

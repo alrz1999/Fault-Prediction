@@ -1,7 +1,7 @@
 from classification.cnn.cnn_baseline import KerasCNNClassifier
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project
-from classification.custom.custom_model import KerasClassifier
+from classification.custom.custom_model import KerasClassifier, SimpleKerasClassifier
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 
@@ -53,9 +53,9 @@ def mlp_classifier(project):
 
 def bow_classifier(project):
     training_classifier_stage = [
-        # LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
-        # LineLevelToFileLevelDatasetMapperStage(),
-        TrainingClassifierStage(BOWBaseLineClassifier, project.get_train_release().release_name, import_data=True)
+        LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelToFileLevelDatasetMapperStage(),
+        TrainingClassifierStage(BOWBaseLineClassifier, project.get_train_release().release_name)
     ]
 
     classifier = Pipeline(training_classifier_stage).run()
@@ -70,7 +70,32 @@ def bow_classifier(project):
                 output_columns=['Bug'],
                 new_columns={'project': project.name, 'train': project.get_train_release().release_name,
                              'test': eval_release.release_name},
-                import_data=True
+            ),
+            EvaluationStage()
+        ]
+
+        output = Pipeline(prediction_classifier_stages).run()
+
+
+def simple_keras_classifier(project):
+    training_classifier_stage = [
+        LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelToFileLevelDatasetMapperStage(),
+        TrainingClassifierStage(SimpleKerasClassifier, project.get_train_release().release_name)
+    ]
+
+    classifier = Pipeline(training_classifier_stage).run()
+
+    for eval_release in project.get_eval_releases():
+        prediction_classifier_stages = [
+            LineLevelDatasetLoaderStage(eval_release.get_line_level_dataset_path()),
+            LineLevelToFileLevelDatasetMapperStage(),
+            PredictingClassifierStage(
+                classifier,
+                eval_release.release_name,
+                output_columns=['Bug'],
+                # new_columns={'project': project.name, 'train': project.get_train_release().release_name,
+                #              'test': eval_release.release_name},
             ),
             EvaluationStage()
         ]
@@ -112,8 +137,9 @@ def keras_classifier(project):
 
 
 def keras_cnn_classifier(project):
+    embedding_dim = 500
     embedding_stages = [
-        TrainingEmbeddingModelStage(GensimWord2VecModelIndexer, project.name, 50, import_data=True)
+        TrainingEmbeddingModelStage(GensimWord2VecModel, project.name, embedding_dim)
     ]
 
     embedding_model = Pipeline(embedding_stages).run()
@@ -124,7 +150,7 @@ def keras_cnn_classifier(project):
         EmbeddingColumnAdderStage(embedding_model),
         TrainingClassifierStage(KerasCNNClassifier, project.get_train_release().release_name, training_metadata={
             'max_features': len(embedding_model.model.wv.key_to_index) + 1,
-            'embedding_dim': 50,
+            'embedding_dim': embedding_dim,
             'batch_size': 32,
             'embedding_model': embedding_model
         })
@@ -164,3 +190,4 @@ if __name__ == '__main__':
     # keras_classifier(project)
     # bow_classifier(project)
     # mlp_classifier(project)
+    # simple_keras_classifier(project)

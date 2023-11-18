@@ -1,7 +1,6 @@
 import os
 
-import tensorflow as tf
-from keras import layers
+from keras import layers, Sequential
 from sklearn.model_selection import train_test_split
 
 from classification.models import ClassifierModel
@@ -16,28 +15,29 @@ class KerasCNNClassifier(ClassifierModel):
     @classmethod
     def build_model(cls, max_features, embedding_dim):
         # A integer input for vocab indices.
-        inputs = tf.keras.Input(shape=(None,), dtype="int64")
+        # inputs = tf.keras.Input(shape=(None, embedding_dim))
 
         # Next, we add a layer to map those vocab indices into a space of dimensionality 'embedding_dim'.
-        x = layers.Embedding(max_features, embedding_dim)(inputs)
-        x = layers.Dropout(0.5)(x)
-
+        # x = layers.Embedding(max_features, embedding_dim)(inputs)
+        # x = inputs
+        # x = layers.Dropout(0.5)(x)
+        model = Sequential()
         # Modified CNN layers similar to the provided architecture.
-        x = layers.Conv1D(100, 5, padding="valid", activation="relu")(x)
-        x = layers.MaxPooling1D()(x)
+        model.add(layers.Conv1D(100, 5, padding="same", activation="relu", input_shape=(embedding_dim, 1)))
+        model.add(layers.MaxPooling1D())
+        model.add(layers.Dropout(0.5))
 
         # Add another Conv1D layer for complexity
-        x = layers.Conv1D(100, 5, padding="valid", activation="relu")(x)
-        x = layers.GlobalMaxPooling1D()(x)
+        model.add(layers.Conv1D(100, 5, padding="same", activation="relu"))
+        model.add(layers.GlobalMaxPooling1D())
+        model.add(layers.Dropout(0.5))
 
         # Vanilla hidden layer:
-        x = layers.Dense(100, activation="relu")(x)
-        x = layers.Dropout(0.5)(x)
+        model.add(layers.Dense(100, activation="relu", input_shape=(None, 500)))
+        model.add(layers.Dropout(0.5))
 
         # Project onto a single unit output layer, and squash it with a sigmoid:
-        predictions = layers.Dense(1, activation="sigmoid", name="predictions")(x)
-
-        model = tf.keras.Model(inputs, predictions)
+        model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
 
         # Compile the model with binary crossentropy loss and an adam optimizer.
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
@@ -55,12 +55,12 @@ class KerasCNNClassifier(ClassifierModel):
 
         model = cls.build_model(max_features, embedding_dim)
 
-        train_data, val_data = train_test_split(df, test_size=0.2, random_state=42)
+        train_data, validation_data = train_test_split(df, test_size=0.2, random_state=42)
 
         train_ds = create_tensorflow_dataset(train_data, batch_size=batch_size, shuffle=True, key_column="embedding")
-        val_ds = create_tensorflow_dataset(val_data, batch_size=batch_size, key_column="embedding")
+        val_ds = create_tensorflow_dataset(validation_data, batch_size=batch_size, key_column="embedding")
 
-        epochs = 1
+        epochs = 20
 
         model.fit(train_ds, validation_data=val_ds, epochs=epochs)
 
