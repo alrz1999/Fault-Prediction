@@ -6,7 +6,9 @@ import tensorflow as tf
 from imblearn.over_sampling import SMOTE
 from keras import layers, Sequential
 from keras.layers import TextVectorization
+from keras.src.utils import pad_sequences
 from sklearn.feature_extraction.text import CountVectorizer
+from keras.preprocessing.text import Tokenizer
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 
@@ -168,18 +170,16 @@ class SimpleKerasClassifier(ClassifierModel):
     @classmethod
     def build_model(cls, input_dim):
         model = Sequential()
-        model.add(layers.Dense(64, input_dim=input_dim, activation='relu'))
+        model.add(layers.Dense(512, input_dim=input_dim, activation='relu'))
         model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(32, activation='relu'))
-        model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(16, activation='relu'))
-        model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(8, activation='relu'))
-        model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(4, activation='relu'))
-        model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(2, activation='relu'))
-        model.add(layers.Dropout(0.25))
+        # model.add(layers.Dense(128, activation='relu'))
+        # model.add(layers.Dropout(0.25))
+        # model.add(layers.Dense(32, activation='relu'))
+        # model.add(layers.Dropout(0.25))
+        # model.add(layers.Dense(8, activation='relu'))
+        # model.add(layers.Dropout(0.25))
+        # model.add(layers.Dense(4, activation='relu'))
+        # model.add(layers.Dropout(0.25))
         model.add(layers.Dense(1, activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -202,7 +202,7 @@ class SimpleKerasClassifier(ClassifierModel):
         model = cls.build_model(input_dim=X.shape[1])
         history = model.fit(
             X, Y,
-            epochs=50,
+            epochs=4,
             batch_size=10
         )
         cls.plot_history(history)
@@ -210,7 +210,7 @@ class SimpleKerasClassifier(ClassifierModel):
         loss, accuracy = model.evaluate(X, Y, verbose=False)
         print("Training Accuracy: {:.4f}".format(accuracy))
 
-        return SimpleKerasClassifier(model, vectorizer)
+        return cls(model, vectorizer)
 
     def predict(self, df, prediction_metadata=None):
         test_code, labels = df['SRC'], df['Bug']
@@ -223,3 +223,55 @@ class SimpleKerasClassifier(ClassifierModel):
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
         return os.path.join(SIMPLE_KERAS_PREDICTION_DIR, dataset_name + '.csv')
+
+
+class SimpleKerasClassifierWithTokenizer(SimpleKerasClassifier):
+    @classmethod
+    def build_model(cls, input_dim):
+        model = Sequential()
+        model.add(layers.Dense(512, input_dim=input_dim, activation='relu'))
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(1, activation='sigmoid'))
+
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        model.summary()
+        return model
+
+    @classmethod
+    def train(cls, df, dataset_name, training_metadata=None):
+        codes, labels = df['SRC'], df['Bug']
+        max_seq_len = training_metadata.get('max_seq_len')
+
+        tokenizer = Tokenizer(num_words=5000)
+        tokenizer.fit_on_texts(codes)
+
+        X = tokenizer.texts_to_sequences(codes)
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
+
+        Y = np.array([1 if label == True else 0 for label in labels])
+
+        sm = SMOTE(random_state=42)
+        X, Y = sm.fit_resample(X, Y)
+
+        model = cls.build_model(input_dim=X.shape[1])
+        history = model.fit(
+            X, Y,
+            epochs=10,
+            batch_size=10
+        )
+        cls.plot_history(history)
+
+        loss, accuracy = model.evaluate(X, Y, verbose=False)
+        print("Training Accuracy: {:.4f}".format(accuracy))
+
+        return cls(model, tokenizer)
+
+    def predict(self, df, prediction_metadata=None):
+        test_code, labels = df['SRC'], df['Bug']
+        max_seq_len = prediction_metadata.get('max_seq_len')
+
+        X = self.vectorizer.texts_to_sequences(test_code)
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
+
+        Y_pred = list(map(bool, list(self.model.predict(X))))
+        return Y_pred

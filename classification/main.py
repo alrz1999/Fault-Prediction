@@ -1,7 +1,8 @@
 from classification.cnn.cnn_baseline import KerasCNNClassifier
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project
-from classification.custom.custom_model import KerasClassifier, SimpleKerasClassifier
+from classification.custom.custom_model import KerasClassifier, SimpleKerasClassifier, \
+    SimpleKerasClassifierWithTokenizer
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 
@@ -103,6 +104,41 @@ def simple_keras_classifier(project):
         output = Pipeline(prediction_classifier_stages).run()
 
 
+def simple_keras_classifier_with_tokenizer(project):
+    training_classifier_stage = [
+        LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelToFileLevelDatasetMapperStage(),
+        TrainingClassifierStage(
+            SimpleKerasClassifierWithTokenizer,
+            project.get_train_release().release_name,
+            training_metadata={
+                'max_seq_len': 100
+            }
+        )
+    ]
+
+    classifier = Pipeline(training_classifier_stage).run()
+
+    for eval_release in project.get_eval_releases():
+        prediction_classifier_stages = [
+            LineLevelDatasetLoaderStage(eval_release.get_line_level_dataset_path()),
+            LineLevelToFileLevelDatasetMapperStage(),
+            PredictingClassifierStage(
+                classifier,
+                eval_release.release_name,
+                output_columns=['Bug'],
+                # new_columns={'project': project.name, 'train': project.get_train_release().release_name,
+                #              'test': eval_release.release_name},
+                prediction_metadata={
+                    'max_seq_len': 100
+                }
+            ),
+            EvaluationStage()
+        ]
+
+        output = Pipeline(prediction_classifier_stages).run()
+
+
 def keras_classifier(project):
     training_classifier_stage = [
         LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
@@ -186,8 +222,9 @@ if __name__ == '__main__':
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )
 
-    keras_cnn_classifier(project)
+    # keras_cnn_classifier(project)
     # keras_classifier(project)
     # bow_classifier(project)
     # mlp_classifier(project)
     # simple_keras_classifier(project)
+    simple_keras_classifier_with_tokenizer(project)
