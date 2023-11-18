@@ -1,6 +1,6 @@
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from data.models import *
-from pipeline.data.file_level import FileLevelDatasetLoaderStage, FileLevelTokenizerStage
+from pipeline.datas.file_level import FileLevelDatasetImporterStage, FileLevelTokenizerStage
 from pipeline.pipeline import Pipeline
 from token_extraction import *
 
@@ -14,7 +14,7 @@ def main():
     tokenizer = CFGTokenExtractor()
 
     stages = [
-        FileLevelDatasetLoaderStage(project.get_train_release().get_file_level_dataset_path()),
+        FileLevelDatasetImporterStage(project.get_train_release().get_file_level_dataset_path()),
         FileLevelTokenizerStage(tokenizer)
     ]
 

@@ -1,16 +1,13 @@
 from classification.evaluation.evaluation import evaluate
-from pipeline.pipeline import PipelineStage, log_method_execution
+from pipeline.models import PipelineStage
 
 
 class EvaluationStage(PipelineStage):
     def __init__(self):
         super().__init__()
 
-    @log_method_execution
     def process(self):
-        df = self.input_data
+        df = self.stage_data['ready_for_evaluation_df']
         true_labels = df['Bug']
         predicted_labels = df['prediction-label']
         evaluate(true_labels, predicted_labels)
-        self.output_data = self.input_data
-        return self.output_data

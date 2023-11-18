@@ -1,19 +1,20 @@
 from data.utils import LineLevelDatasetHelper
-from pipeline.pipeline import PipelineStage, log_method_execution
+from pipeline.models import PipelineStage
 import pandas as pd
 
 
-class LineLevelDatasetLoaderStage(PipelineStage):
-    def __init__(self, file_path, replace_na_with_empty=True, return_blank_lines=False,
-                 return_test_file_lines=False, return_comment_lines=False):
-        super().__init__(None, True, False, file_path)
+class LineLevelDatasetImporterStage(PipelineStage):
+    def __init__(self, file_path, replace_na_with_empty=True, return_blank_lines=False, return_test_file_lines=False,
+                 return_comment_lines=False):
+        super().__init__()
+        # TODO can get a datasetGenerator as input instead of file path
+        self.file_path = file_path
         self.return_comment_lines = return_comment_lines
         self.replace_na_with_empty = replace_na_with_empty
         self.return_blank_lines = return_blank_lines
         self.return_test_file_lines = return_test_file_lines
 
-    @log_method_execution
-    def import_output(self):
+    def import_dataset(self):
         df = pd.read_csv(self.file_path, encoding='latin')
 
         if self.replace_na_with_empty:
@@ -25,29 +26,26 @@ class LineLevelDatasetLoaderStage(PipelineStage):
         if not self.return_comment_lines:
             df = df[df['is_comment'] == False]
 
-        self.output_data = df
         return df
+
+    def process(self):
+        self.result = self.import_dataset()
+        self.stage_data['line_level_df'] = self.result
 
 
 class LineLevelTokenizerStage(PipelineStage):
-    def __init__(self, input_data=None, to_lowercase=True, max_seq_len=None):
-        super().__init__(input_data, False, False, None)
+    def __init__(self, to_lowercase=True, max_seq_len=None):
+        super().__init__()
         self.to_lowercase = to_lowercase
         self.max_seq_len = max_seq_len
 
-    def import_output(self):
-        raise Exception()
-
-    def export_output(self):
-        raise Exception()
-
-    @log_method_execution
     def process(self):
-        df = self.input_data
+        df = self.stage_data['line_level_df']
         helper = LineLevelDatasetHelper(df)
         tokens = helper.get_all_lines_tokens(
             to_lowercase=self.to_lowercase,
             max_seq_len=self.max_seq_len
         )
-        self.output_data = tokens
-        return tokens
+
+        self.result = tokens
+        self.stage_data['line_level_tokens'] = tokens

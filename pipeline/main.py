@@ -1,21 +1,18 @@
-# Define your stages
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from data.models import Project
-from pipeline.pipeline import PipelineStage, Pipeline
+from pipeline.models import PipelineStage, Pipeline
 
 
 class Stage1(PipelineStage):
+
     def process(self):
-        if self.input_data is not None:
-            self.output_data = self.input_data.copy()
-            self.output_data['Stage1_Column'] = self.output_data['Column_A'] * 2
+        self.stage_data['b'] = 'b'
 
 
 class Stage2(PipelineStage):
+
     def process(self):
-        if self.input_data is not None:
-            self.output_data = self.input_data.copy()
-            self.output_data['Stage2_Column'] = self.output_data['Column_B'] + 5
+        self.stage_data['a'] = 'a'
 
 
 if __name__ == "__main__":
@@ -26,7 +23,10 @@ if __name__ == "__main__":
     )
 
     stages = [
-        PipelineStage("")
+        Stage1(),
+        Stage2()
     ]
     pipeline = Pipeline(stages)
-    pipeline.run()
+    print(stages)
+    print(pipeline)
+    print(pipeline.run())

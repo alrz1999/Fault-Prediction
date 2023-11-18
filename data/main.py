@@ -1,7 +1,7 @@
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from data.models import Project
-from pipeline.data.line_level import LineLevelDatasetLoaderStage, LineLevelTokenizerStage
-from pipeline.pipeline import Pipeline
+from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
+from pipeline.models import Pipeline
 
 
 def main():
@@ -12,7 +12,7 @@ def main():
     )
 
     stages = [
-        LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
         LineLevelTokenizerStage()
     ]
     lines_tokens = Pipeline(stages).run()
