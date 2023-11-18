@@ -38,9 +38,9 @@ class LineLevelToFileLevelDatasetMapperStage(PipelineStage):
 
     @log_method_execution
     def process(self):
-        file_level_df = self.input_data
-        train_code, train_label = LineLevelToFileLevelDatasetMapper().prepare_data(file_level_df, True)
+        line_level_df = self.input_data
+        train_code, train_label = LineLevelToFileLevelDatasetMapper().prepare_data(line_level_df, True)
         data = {'SRC': train_code, 'Bug': train_label}
-        line_level_df = pd.DataFrame(data)
-        self.output_data = line_level_df
-        return line_level_df
+        file_level_df = pd.DataFrame(data)
+        self.output_data = file_level_df
+        return file_level_df

@@ -28,10 +28,10 @@ class BOWBaseLineClassifier(ClassifierModel):
         Y = np.array([1 if label == True else 0 for label in labels])
 
         sm = SMOTE(random_state=42)
-        X_res, y_res = sm.fit_resample(train_feature, Y)
+        X, Y = sm.fit_resample(train_feature, Y)
 
         clf = LogisticRegression(solver='liblinear')
-        clf.fit(X_res, y_res)
+        clf.fit(X, Y)
 
         return BOWBaseLineClassifier(clf, vectorizer, dataset_name)
 

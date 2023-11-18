@@ -5,8 +5,9 @@ import pandas as pd
 
 class LineLevelDatasetLoaderStage(PipelineStage):
     def __init__(self, file_path, replace_na_with_empty=True, return_blank_lines=False,
-                 return_test_file_lines=False):
+                 return_test_file_lines=False, return_comment_lines=False):
         super().__init__(None, True, False, file_path)
+        self.return_comment_lines = return_comment_lines
         self.replace_na_with_empty = replace_na_with_empty
         self.return_blank_lines = return_blank_lines
         self.return_test_file_lines = return_test_file_lines
@@ -21,6 +22,8 @@ class LineLevelDatasetLoaderStage(PipelineStage):
             df = df[df['is_blank'] == False]
         if not self.return_test_file_lines:
             df = df[df['is_test_file'] == False]
+        if not self.return_comment_lines:
+            df = df[df['is_comment'] == False]
 
         self.output_data = df
         return df
