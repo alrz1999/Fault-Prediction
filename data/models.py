@@ -92,9 +92,10 @@ class Project:
             output.append(
                 ProjectRelease(
                     line_level_dataset_save_dir=self.line_level_dataset_save_dir,
+                    file_level_dataset_save_dir=self.file_level_dataset_dir,
                     project_name=self.name,
                     release_name=release,
-                    line_level_bug_repository=LineLevelBugRepository(release)
+                    line_level_bug_repository=LineLevelBugRepository(release),
                 )
             )
 

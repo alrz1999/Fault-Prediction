@@ -83,12 +83,15 @@ class LineLevelDatasetHelper:
     def __init__(self, df):
         self.df = df
 
-    def get_all_lines_tokens(self):
-        file_lines_tokens, _ = self.get_file_lines_tokens_and_labels(True)
+    def get_all_lines_tokens(self, to_lowercase=False, max_seq_len=None):
+        file_lines_tokens, _ = self.get_file_lines_tokens_and_labels(
+            to_lowercase=to_lowercase,
+            max_seq_len=max_seq_len
+        )
         all_line_tokens = list(more_itertools.collapse(file_lines_tokens[:], levels=1))
         return all_line_tokens
 
-    def get_file_lines_tokens_and_labels(self, to_lowercase=False):
+    def get_file_lines_tokens_and_labels(self, to_lowercase=False, max_seq_len=None):
         file_line_tokens = []
         file_labels = []
 
@@ -97,7 +100,7 @@ class LineLevelDatasetHelper:
 
             lines = list(group_df['code_line'])
 
-            file_code = self.get_line_tokens(lines, to_lowercase)
+            file_code = self.get_line_tokens(lines, to_lowercase, max_seq_len=max_seq_len)
             file_line_tokens.append(file_code)
             file_labels.append(file_label)
 
@@ -113,12 +116,13 @@ class LineLevelDatasetHelper:
                 line = line.lower()
 
             tokens = line.strip().split()
-            tokens_count = len(tokens)
+            if max_seq_len is not None:
+                tokens_count = len(tokens)
 
-            tokens = tokens[:max_seq_len]
+                tokens = tokens[:max_seq_len]
 
-            if tokens_count < max_seq_len:
-                tokens = tokens + ['<pad>'] * (max_seq_len - tokens_count)
+                if tokens_count < max_seq_len:
+                    tokens = tokens + ['<pad>'] * (max_seq_len - tokens_count)
 
             line_tokens.append(tokens)
 

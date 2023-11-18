@@ -30,8 +30,10 @@ class LineLevelDatasetLoaderStage(PipelineStage):
 
 
 class LineLevelTokenizerStage(PipelineStage):
-    def __init__(self, input_data=None):
+    def __init__(self, input_data=None, to_lowercase=True, max_seq_len=None):
         super().__init__(input_data, False, False, None)
+        self.to_lowercase = to_lowercase
+        self.max_seq_len = max_seq_len
 
     def import_output(self):
         raise Exception()
@@ -43,6 +45,9 @@ class LineLevelTokenizerStage(PipelineStage):
     def process(self):
         df = self.input_data
         helper = LineLevelDatasetHelper(df)
-        tokens = helper.get_all_lines_tokens()
+        tokens = helper.get_all_lines_tokens(
+            to_lowercase=self.to_lowercase,
+            max_seq_len=self.max_seq_len
+        )
         self.output_data = tokens
         return tokens

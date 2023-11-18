@@ -53,6 +53,17 @@ class GensimWord2VecModel(EmbeddingModel):
             embeddings.append(code_embeddings)
         return embeddings
 
+    def get_embedding_matrix(self, word_index, embedding_dim):
+        vocab_size = len(word_index) + 1  # Adding again 1 because of reserved 0 index
+        embedding_matrix = np.zeros((vocab_size, embedding_dim))
+
+        for word in self.model.wv.index_to_key:
+            if word in word_index:
+                vec = self.model.wv[word]
+                embedding_matrix[word_index[word]] = np.array(vec, dtype=np.float32)[:embedding_dim]
+
+        return embedding_matrix
+
 
 class GensimWord2VecModelIndexer(GensimWord2VecModel):
     def get_embeddings(self, data):
@@ -61,7 +72,8 @@ class GensimWord2VecModelIndexer(GensimWord2VecModel):
         embeddings = []
         for code in data:
             code_embeddings = [
-                self.model.wv.key_to_index[word] if word in self.model.wv.key_to_index.keys() else len(self.model.wv.key_to_index) for word
+                self.model.wv.key_to_index[word] if word in self.model.wv.key_to_index.keys() else len(
+                    self.model.wv.key_to_index) for word
                 in code.split()
             ]
 

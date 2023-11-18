@@ -21,3 +21,6 @@ class EmbeddingModel:
 
     def get_embeddings(self, data):
         raise NotImplementedError()
+
+    def get_embedding_matrix(self, word_index, embedding_dim):
+        raise NotImplementedError()
