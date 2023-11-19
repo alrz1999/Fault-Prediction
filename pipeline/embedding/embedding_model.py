@@ -1,4 +1,4 @@
-from pipeline.models import PipelineStage
+from pipeline.models import PipelineStage, StageData
 
 
 class EmbeddingModelTrainingStage(PipelineStage):
@@ -16,13 +16,13 @@ class EmbeddingModelTrainingStage(PipelineStage):
 
     def process(self):
         model = self.embedding_cls.train(
-            self.stage_data['embedding_input'],
+            self.stage_data[StageData.Keys.LINE_LEVEL_TOKENS],
             dataset_name=self.dataset_name,
             embedding_dimension=self.embedding_dimension
         )
 
         self.result = model
-        self.stage_data['embedding_model'] = self.result
+        self.stage_data[StageData.Keys.EMBEDDING_MODEL] = self.result
 
 
 class EmbeddingModelImporterStage(PipelineStage):
@@ -42,4 +42,4 @@ class EmbeddingModelImporterStage(PipelineStage):
 
     def process(self):
         self.result = self.import_model()
-        self.stage_data['embedding_model'] = self.result
+        self.stage_data[StageData.Keys.EMBEDDING_MODEL] = self.result

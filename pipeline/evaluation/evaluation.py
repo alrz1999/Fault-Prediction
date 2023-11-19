@@ -1,5 +1,5 @@
 from classification.evaluation.evaluation import evaluate
-from pipeline.models import PipelineStage
+from pipeline.models import PipelineStage, StageData
 
 
 class EvaluationStage(PipelineStage):
@@ -7,7 +7,7 @@ class EvaluationStage(PipelineStage):
         super().__init__()
 
     def process(self):
-        df = self.stage_data['ready_for_evaluation_df']
+        df = self.stage_data[StageData.Keys.PREDICTION_RESULT_DF]
         true_labels = df['Bug']
         predicted_labels = df['prediction-label']
         evaluate(true_labels, predicted_labels)

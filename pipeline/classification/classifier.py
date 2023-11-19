@@ -1,5 +1,5 @@
 from classification.models import ClassifierModel
-from pipeline.models import PipelineStage
+from pipeline.models import PipelineStage, StageData
 
 
 class ClassifierTrainingStage(PipelineStage):
@@ -16,10 +16,10 @@ class ClassifierTrainingStage(PipelineStage):
         self.result.export_model()
 
     def process(self):
-        train_data = self.stage_data['train_data']
+        train_data = self.stage_data[StageData.Keys.FILE_LEVEL_DF]
         model = self.classifier_cls.train(train_data, self.dataset_name, training_metadata=self.training_metadata)
         self.result = model
-        self.stage_data['classifier_model'] = self.result
+        self.stage_data[StageData.Keys.CLASSIFIER_MODEL] = self.result
 
 
 class PredictingClassifierStage(PipelineStage):
@@ -39,13 +39,13 @@ class PredictingClassifierStage(PipelineStage):
         self.result.to_csv(self.classifier.get_result_dataset_path(self.dataset_name), index=False)
 
     def process(self):
-        data = self.stage_data['test_data'].copy()
+        data = self.stage_data[StageData.Keys.FILE_LEVEL_DF].copy()
         predicted_labels = self.classifier.predict(data, prediction_metadata=self.prediction_metadata)
         if self.output_columns is not None:
             data = data[self.output_columns]
         if self.new_columns is not None and len(self.new_columns) != 0:
             for key, val in self.new_columns.items():
                 data[key] = [val] * len(predicted_labels)
-        data['prediction-label'] = predicted_labels
+        data[StageData.Keys.PREDICTED_LABELS] = predicted_labels
         self.result = data
-        self.stage_data['prediction_result'] = self.result
+        self.stage_data[StageData.Keys.PREDICTION_RESULT_DF] = self.result

@@ -1,5 +1,5 @@
 from data.utils import LineLevelDatasetHelper
-from pipeline.models import PipelineStage
+from pipeline.models import PipelineStage, StageData
 import pandas as pd
 
 
@@ -30,7 +30,7 @@ class LineLevelDatasetImporterStage(PipelineStage):
 
     def process(self):
         self.result = self.import_dataset()
-        self.stage_data['line_level_df'] = self.result
+        self.stage_data[StageData.Keys.LINE_LEVEL_DF] = self.result
 
 
 class LineLevelTokenizerStage(PipelineStage):
@@ -40,7 +40,7 @@ class LineLevelTokenizerStage(PipelineStage):
         self.max_seq_len = max_seq_len
 
     def process(self):
-        df = self.stage_data['line_level_df']
+        df = self.stage_data[StageData.Keys.LINE_LEVEL_DF]
         helper = LineLevelDatasetHelper(df)
         tokens = helper.get_all_lines_tokens(
             to_lowercase=self.to_lowercase,
@@ -48,4 +48,4 @@ class LineLevelTokenizerStage(PipelineStage):
         )
 
         self.result = tokens
-        self.stage_data['line_level_tokens'] = tokens
+        self.stage_data[StageData.Keys.LINE_LEVEL_TOKENS] = tokens

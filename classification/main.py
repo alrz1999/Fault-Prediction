@@ -12,44 +12,39 @@ from pipeline.datas.file_level import LineLevelToFileLevelDatasetMapperStage
 from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
 from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage
 from pipeline.evaluation.evaluation import EvaluationStage
-from pipeline.pipeline import Pipeline
+from pipeline.models import Pipeline, StageData
 
 
 def mlp_classifier(project):
-    embedding_stages = [
-        # LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
-        # LineLevelToFileLevelDatasetMapperStage(),
-        EmbeddingModelTrainingStage(GensimWord2VecModel, project.name, 50, import_data=True)
-    ]
-
-    embedding_model = Pipeline(embedding_stages).run()
+    embedding_cls = GensimWord2VecModel
+    classifier_cls = MLPBaseLineClassifier
+    embedding_dimension = 50
 
     training_classifier_stage = [
-        # LineLevelDatasetLoaderStage(project.get_train_release().get_line_level_dataset_path()),
-        # LineLevelToFileLevelDatasetMapperStage(),
-        # EmbeddingColumnAdderStage(embedding_model),
-        ClassifierTrainingStage(MLPBaseLineClassifier, project.get_train_release().release_name, import_data=True)
+        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelToFileLevelDatasetMapperStage(),
+        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, perform_export=False),
+        ClassifierTrainingStage(classifier_cls, project.get_train_release().release_name, perform_export=False)
     ]
 
-    classifier = Pipeline(training_classifier_stage).run()
+    training_pipeline_data = Pipeline(training_classifier_stage).run()
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
             LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
             LineLevelToFileLevelDatasetMapperStage(),
-            EmbeddingModelImporterStage(embedding_model),
             PredictingClassifierStage(
-                classifier,
+                training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL],
                 eval_release.release_name,
                 output_columns=['Bug'],
                 new_columns={'project': project.name, 'train': project.get_train_release().release_name,
                              'test': eval_release.release_name},
-                export_data=True
+                perform_export=False
             ),
             EvaluationStage()
         ]
 
-        output = Pipeline(prediction_classifier_stages).run()
+        evaluation_pipeline_data = Pipeline(prediction_classifier_stages).run()
 
 
 def bow_classifier(project):
@@ -273,15 +268,15 @@ def simple_keras_classifier_with_external_embedding(project):
 
 if __name__ == '__main__':
     project = Project(
-        name="camel",
+        name="activemq",
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )
 
+    mlp_classifier(project)
     # keras_cnn_classifier(project)
     # keras_classifier(project)
     # bow_classifier(project)
-    # mlp_classifier(project)
     # simple_keras_classifier(project)
-    simple_keras_classifier_with_tokenizer(project)
+    # simple_keras_classifier_with_tokenizer(project)
     # simple_keras_classifier_with_external_embedding(project)

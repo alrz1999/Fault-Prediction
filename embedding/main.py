@@ -4,7 +4,7 @@ from embedding.word2vec.word2vec import GensimWord2VecModel
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
 from pipeline.embedding.embedding_model import EmbeddingModelTrainingStage
-from pipeline.pipeline import Pipeline
+from pipeline.models import Pipeline, StageData
 
 
 def main():
@@ -18,10 +18,11 @@ def main():
     stages = [
         LineLevelDatasetImporterStage(train_release.get_line_level_dataset_path()),
         LineLevelTokenizerStage(),
-        EmbeddingModelTrainingStage(GensimWord2VecModel, project.name, 50, import_data=True)
+        EmbeddingModelTrainingStage(GensimWord2VecModel, project.name, 50, perform_export=False)
     ]
 
-    model: EmbeddingModel = Pipeline(stages).run()
+    pipeline_data = Pipeline(stages).run()
+    model: EmbeddingModel = pipeline_data[StageData.Keys.EMBEDDING_MODEL]
     print(model.get_embeddings(['if']))
 
 

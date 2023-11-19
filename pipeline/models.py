@@ -1,5 +1,5 @@
 import logging
-
+from enum import Enum
 import colorlog
 import pandas as pd
 
@@ -31,6 +31,19 @@ logger.addHandler(stream_handler)
 
 
 class StageData(dict):
+    class Keys(Enum):
+        LINE_LEVEL_TOKENS = 'line_level_tokens'
+        LINE_LEVEL_DF = 'line_level_df'
+
+        EMBEDDING_MODEL = 'embedding_model'
+
+        FILE_LEVEL_DF = 'file_level_df'
+        FILE_LEVEL_TOKENS = 'FILE_level_tokens'
+
+        CLASSIFIER_MODEL = 'classifier_model'
+        PREDICTED_LABELS = 'predicted_labels'
+        PREDICTION_RESULT_DF = 'prediction_result_df'
+
     def combine_with(self, another_stage_data: dict):
         if another_stage_data is None:
             return
