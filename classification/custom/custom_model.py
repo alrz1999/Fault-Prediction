@@ -289,18 +289,18 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
                 input_length=max_seq_len,
                 trainable=True)
         )
-        model.add(layers.GlobalMaxPool1D())
-        # model.add(layers.Flatten())
-        # model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(25, activation='relu'))
+        # model.add(layers.GlobalMaxPool1D())
+        model.add(layers.Flatten())
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(64, activation='relu'))
         model.add(layers.Dropout(0.25))
         # model.add(layers.Dense(256, activation='relu'))
         # model.add(layers.Dropout(0.25))
         # model.add(layers.Dense(128, activation='relu'))
         # model.add(layers.Dropout(0.25))
-        # model.add(layers.Dense(64, activation='relu'))
-        # model.add(layers.Dropout(0.25))
-        # model.add(layers.GlobalMaxPool1D())
+        model.add(layers.Dense(8, activation='relu'))
+        model.add(layers.Dropout(0.25))
+        # model.add(layers.MaxPooling1D())
         # model.add(layers.Dense(10, activation='relu'))
         # Project onto a single unit output layer, and squash it with a sigmoid:
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
@@ -342,7 +342,8 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
         history = model.fit(
             X, Y,
             epochs=20,
-            batch_size=batch_size
+            batch_size=batch_size,
+            validation_split=0.2
         )
         cls.plot_history(history)
         return cls(model, tokenizer)

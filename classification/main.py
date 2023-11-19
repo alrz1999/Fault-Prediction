@@ -273,19 +273,19 @@ def simple_keras_classifier_with_external_embedding(project):
     embedding_cls = GensimWord2VecModel
     embedding_dim = 50
     classifier_cls = SimpleKerasClassifierWithExternalEmbedding
+    max_seq_len = 400
 
-    embedding_dim = 50
-    max_seq_len = 500
-
-    embedding_stages = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
-        LineLevelTokenizerStage(max_seq_len=max_seq_len),
-        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim)
+    embedding_training_stages = [
+        # LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        # LineLevelTokenizerStage(max_seq_len=max_seq_len),
+        # EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, perform_export=True),
+        EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dim)
     ]
 
-    embedding_model = Pipeline(embedding_stages).run()
+    embedding_pipeline_data = Pipeline(embedding_training_stages).run()
+    embedding_model = embedding_pipeline_data[StageData.Keys.EMBEDDING_MODEL]
 
-    training_classifier_stage = [
+    classifier_training_stages = [
         LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
         LineLevelToFileLevelDatasetMapperStage(),
         ClassifierTrainingStage(
@@ -299,10 +299,11 @@ def simple_keras_classifier_with_external_embedding(project):
             })
     ]
 
-    classifier = Pipeline(training_classifier_stage).run()
+    training_pipeline_data = Pipeline(classifier_training_stages).run(embedding_pipeline_data)
+    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
 
     for eval_release in project.get_eval_releases():
-        prediction_classifier_stages = [
+        classifier_prediction_stages = [
             LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
             LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
@@ -317,7 +318,7 @@ def simple_keras_classifier_with_external_embedding(project):
             EvaluationStage()
         ]
 
-        output = Pipeline(prediction_classifier_stages).run()
+        Pipeline(classifier_prediction_stages).run()
 
 
 def generate_line_level_dfs(project):
@@ -339,5 +340,5 @@ if __name__ == '__main__':
     # keras_count_vectorizer_and_dense_layer(project)
     # keras_tokenizer_and_dense_layer(project)
     # keras_classifier(project)
-    keras_cnn_classifier(project)
-    # simple_keras_classifier_with_external_embedding(project)
+    # keras_cnn_classifier(project)
+    simple_keras_classifier_with_external_embedding(project)
