@@ -1,6 +1,11 @@
 import os
 
+import numpy as np
+from imblearn.over_sampling import SMOTE
 from keras import layers, Sequential
+from keras.src.preprocessing.text import Tokenizer
+from keras.src.utils import pad_sequences
+from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 
 from classification.models import ClassifierModel
@@ -9,21 +14,24 @@ from config import KERAS_CNN_SAVE_PREDICTION_DIR
 
 
 class KerasCNNClassifier(ClassifierModel):
-    def __init__(self, model):
+    def __init__(self, model, tokenizer):
         self.model = model
+        self.tokenizer = tokenizer
 
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
         model = Sequential()
 
         # Next, we add a layer to map those vocab indices into a space of dimensionality 'embedding_dim'.
-        model.add(layers.Embedding(vocab_size, embedding_dim,
-                                   weights=[embedding_matrix],
-                                   input_length=embedding_dim,
-                                   trainable=True))
-        model.add(layers.GlobalMaxPool1D())
-        model.add(layers.Dropout(0.2))
-        model.add(layers.Flatten())
+        model.add(
+            layers.Embedding(
+                vocab_size, embedding_dim,
+                weights=[embedding_matrix],
+                input_length=max_seq_len,
+                trainable=True
+            )
+        )
+        # model.add(layers.Flatten())
         # Modified CNN layers similar to the provided architecture.
         model.add(layers.Conv1D(100, 5, padding="same", activation="relu"))
         model.add(layers.MaxPooling1D())
@@ -31,9 +39,11 @@ class KerasCNNClassifier(ClassifierModel):
 
         # Add another Conv1D layer for complexity
         model.add(layers.Conv1D(100, 5, padding="same", activation="relu"))
-        model.add(layers.GlobalMaxPooling1D())
+        model.add(layers.MaxPooling1D())
         model.add(layers.Dropout(0.2))
 
+        model.add(layers.GlobalMaxPool1D())
+        model.add(layers.Dropout(0.2))
         # Vanilla hidden layer:
         model.add(layers.Dense(100, activation="relu"))
         model.add(layers.Dropout(0.2))
@@ -46,36 +56,52 @@ class KerasCNNClassifier(ClassifierModel):
         return model
 
     @classmethod
-    def vectorize_text(cls, vectorize_layer, text, label):
-        return vectorize_layer.get_embeddings(text), label
-
-    @classmethod
     def train(cls, df, dataset_name, training_metadata=None):
-        max_features = training_metadata.get('vocab_size', 20000)
-        embedding_dim = training_metadata.get('embedding_dim', 128)
-        batch_size = training_metadata.get('batch_size', 32)
-        embedding_matrix = training_metadata.get('embedding_matrix', None)
+        embedding_dim = training_metadata.get('embedding_dim')
+        batch_size = training_metadata.get('batch_size')
+        embedding_model = training_metadata.get('embedding_model')
+        max_seq_len = training_metadata.get('max_seq_len')
+        epochs = training_metadata.get('epochs')
+        num_words = training_metadata.get('num_words')
 
-        model = cls.build_model(max_features, embedding_dim, embedding_matrix)
+        codes, labels = df['SRC'], df['Bug']
 
-        train_data, validation_data = train_test_split(df, test_size=0.2, random_state=42)
+        tokenizer = Tokenizer(num_words=num_words)
+        tokenizer.fit_on_texts(codes)
 
-        train_ds = create_tensorflow_dataset(train_data, batch_size=batch_size, shuffle=True)
-        val_ds = create_tensorflow_dataset(validation_data, batch_size=batch_size)
+        embedding_matrix = np.array(embedding_model.get_embedding_matrix(tokenizer.word_index, embedding_dim))
+        X = tokenizer.texts_to_sequences(codes)
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
 
-        epochs = 20
+        Y = np.array([1 if label == True else 0 for label in labels])
 
-        model.fit(train_ds, validation_data=val_ds, epochs=epochs)
+        sm = SMOTE(random_state=42)
+        X, Y = sm.fit_resample(X, Y)
 
-        return KerasCNNClassifier(model)
+        model = cls.build_model(
+            vocab_size=len(tokenizer.word_index) + 1,
+            embedding_dim=embedding_dim,
+            embedding_matrix=embedding_matrix,
+            max_seq_len=max_seq_len
+        )
+
+        history = model.fit(
+            X, Y,
+            epochs=epochs,
+            batch_size=batch_size
+        )
+        cls.plot_history(history)
+        return cls(model, tokenizer)
 
     def predict(self, df, prediction_metadata=None):
-        batch_size = prediction_metadata.get('batch_size', 32)
+        max_seq_len = prediction_metadata.get('max_seq_len')
 
-        test_ds = create_tensorflow_dataset(df, batch_size=batch_size)
+        codes, labels = df['SRC'], df['Bug']
 
-        test_ds = test_ds.cache().prefetch(buffer_size=10)
-        Y_pred = list(map(bool, list(self.model.predict(test_ds))))
+        X_test = self.tokenizer.texts_to_sequences(codes)
+        X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
+
+        Y_pred = list(map(bool, list(self.model.predict(X_test))))
         return Y_pred
 
     def evaluate(self, test_df, batch_size=32):

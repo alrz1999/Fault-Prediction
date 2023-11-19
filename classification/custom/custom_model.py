@@ -47,13 +47,13 @@ class KerasClassifier(ClassifierModel):
         self.vectorize_layer = vectorize_layer
 
     @classmethod
-    def build_model(cls, max_features, embedding_dim):
+    def build_model(cls, vocab_size, embedding_dim):
         # A integer input for vocab indices.
         inputs = tf.keras.Input(shape=(None,), dtype="int64")
 
         # Next, we add a layer to map those vocab indices into a space of dimensionality
         # 'embedding_dim'.
-        x = layers.Embedding(max_features, embedding_dim)(inputs)
+        x = layers.Embedding(vocab_size, embedding_dim)(inputs)
         x = layers.Dropout(0.5)(x)
 
         # Conv1D + global max pooling
@@ -81,14 +81,14 @@ class KerasClassifier(ClassifierModel):
 
     @classmethod
     def train(cls, df, dataset_name, training_metadata=None):
-        max_features = training_metadata.get('max_features', 20000)
+        vocab_size = training_metadata.get('vocab_size', 20000)
         embedding_dim = training_metadata.get('embedding_dim', 128)
         sequence_length = training_metadata.get('sequence_length', 500)
         batch_size = training_metadata.get('batch_size', 32)
 
-        model = cls.build_model(max_features, embedding_dim)
+        model = cls.build_model(vocab_size, embedding_dim)
         vectorize_layer = TextVectorization(
-            max_tokens=max_features,
+            max_tokens=vocab_size,
             output_mode="int",
             output_sequence_length=sequence_length,
         )
@@ -103,16 +103,13 @@ class KerasClassifier(ClassifierModel):
         train_ds = train_dataset.map(lambda x, y: cls.vectorize_text(vectorize_layer, x, y))
         val_ds = val_dataset.map(lambda x, y: cls.vectorize_text(vectorize_layer, x, y))
 
-        # Do async prefetching / buffering of the data for best performance on GPU.
-        train_ds = train_ds.cache().prefetch(buffer_size=10)
-        val_ds = val_ds.cache().prefetch(buffer_size=10)
-
         epochs = 3
 
         # Fit the model using the train and test datasets.
-        model.fit(train_ds, validation_data=val_ds, epochs=epochs)
+        history = model.fit(train_ds, validation_data=val_ds, epochs=epochs)
+        cls.plot_history(history)
 
-        return KerasClassifier(model, vectorize_layer)
+        return cls(model, vectorize_layer)
 
     def predict(self, df, prediction_metadata=None):
         batch_size = prediction_metadata.get('batch_size', 32)
@@ -129,33 +126,8 @@ class KerasClassifier(ClassifierModel):
         print(f"Number of batches in raw_test_ds: {test_ds.cardinality()}")
 
         test_ds = test_ds.map(lambda x, y: self.vectorize_text(self.vectorize_layer, x, y))
-        test_ds = test_ds.cache().prefetch(buffer_size=10)
 
         self.model.evaluate(test_ds)
-
-    def get_end_to_end_model(self):
-        model = self.model
-        # A string input
-        inputs = tf.keras.Input(shape=(1,), dtype="string")
-        # Turn strings into vocab indices
-        indices = self.vectorize_layer(inputs)
-        # Turn vocab indices into predictions
-        outputs = model(indices)
-
-        # Our end to end model
-        end_to_end_model = tf.keras.Model(inputs, outputs)
-        end_to_end_model.compile(
-            loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"]
-        )
-        return end_to_end_model
-
-    def evaluate_end_to_end_model(self, test_df, batch_size=32):
-        end_to_end_model = self.get_end_to_end_model()
-
-        test_ds = create_tensorflow_dataset(test_df, batch_size=batch_size)
-        print(f"Number of batches in raw_test_ds: {test_ds.cardinality()}")
-
-        end_to_end_model.evaluate(test_ds)
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
@@ -301,17 +273,20 @@ class KerasTokenizerAndDenseLayer(KerasCountVectorizerAndDenseLayer):
 
 
 class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
-    def __init__(self, model, vectorizer):
+    def __init__(self, model, tokenizer):
         self.model = model
-        self.vectorizer = vectorizer
+        self.tokenizer = tokenizer
 
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
         model = Sequential()
-        model.add(layers.Embedding(vocab_size, embedding_dim,
-                                   weights=[embedding_matrix],
-                                   input_length=max_seq_len,
-                                   trainable=True))
+        model.add(
+            layers.Embedding(
+                vocab_size, embedding_dim,
+                weights=[embedding_matrix],
+                input_length=max_seq_len,
+                trainable=True)
+        )
         model.add(layers.GlobalMaxPool1D())
         # model.add(layers.Flatten())
         # model.add(layers.Dropout(0.25))
@@ -375,7 +350,7 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
 
         codes, labels = df['SRC'], df['Bug']
 
-        X_test = self.vectorizer.texts_to_sequences(codes)
+        X_test = self.tokenizer.texts_to_sequences(codes)
         X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
 
         Y_pred = list(map(bool, list(self.model.predict(X_test))))
