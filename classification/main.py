@@ -10,7 +10,8 @@ from embedding.word2vec.word2vec import GensimWord2VecModel, GensimWord2VecModel
 from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
 from pipeline.datas.file_level import LineLevelToFileLevelDatasetMapperStage
 from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
-from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage
+from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage, \
+    EmbeddingAdderStage
 from pipeline.evaluation.evaluation import EvaluationStage
 from pipeline.models import Pipeline, StageData
 
@@ -19,11 +20,14 @@ def mlp_classifier(project):
     embedding_cls = GensimWord2VecModel
     classifier_cls = MLPBaseLineClassifier
     embedding_dimension = 50
+    max_seq_len = None
 
     training_classifier_stage = [
         LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
         LineLevelToFileLevelDatasetMapperStage(),
-        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, perform_export=False),
+        LineLevelTokenizerStage(),
+        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, perform_export=True),
+        EmbeddingAdderStage(),
         ClassifierTrainingStage(classifier_cls, project.get_train_release().release_name, perform_export=False)
     ]
 
@@ -33,6 +37,8 @@ def mlp_classifier(project):
         prediction_classifier_stages = [
             LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
             LineLevelToFileLevelDatasetMapperStage(),
+            EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dimension),
+            EmbeddingAdderStage(),
             PredictingClassifierStage(
                 training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL],
                 eval_release.release_name,

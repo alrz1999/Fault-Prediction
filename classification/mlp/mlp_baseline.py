@@ -19,7 +19,8 @@ class MLPBaseLineClassifier(ClassifierModel):
 
     @classmethod
     def train(cls, df, dataset_name, training_metadata=None):
-        embeddings, labels = df['embedding'].tolist(), df['Bug']
+        embeddings = training_metadata.get('embedding')
+        labels = df['Bug']
 
         X = np.array(embeddings)
         Y = np.array([1 if label == True else 0 for label in labels])
@@ -59,7 +60,7 @@ class MLPBaseLineClassifier(ClassifierModel):
         pickle.dump(self.scaler, open(self.get_scalar_save_path(self.dataset_name), 'wb'))
 
     def predict(self, df, prediction_metadata=None):
-        embeddings, labels = df['embedding'].tolist(), df['Bug']
+        embeddings = prediction_metadata.get('embedding')
 
         X_scaled = self.scaler.transform(embeddings)
         Y_pred = list(map(bool, list(self.model.predict(X_scaled))))

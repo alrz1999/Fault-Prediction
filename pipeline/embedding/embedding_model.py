@@ -1,3 +1,5 @@
+import numpy as np
+
 from pipeline.models import PipelineStage, StageData
 
 
@@ -43,3 +45,13 @@ class EmbeddingModelImporterStage(PipelineStage):
     def process(self):
         self.result = self.import_model()
         self.stage_data[StageData.Keys.EMBEDDING_MODEL] = self.result
+
+
+class EmbeddingAdderStage(PipelineStage):
+    def process(self):
+        embedding_model = self.stage_data[StageData.Keys.EMBEDDING_MODEL]
+        df = self.stage_data[StageData.Keys.FILE_LEVEL_DF]
+        embeddings = embedding_model.get_embeddings(df['SRC'])
+        print("embedding_shape:", np.array(embeddings).shape)
+        self.result = embeddings
+        self.stage_data[StageData.Keys.EMBEDDING] = self.result
