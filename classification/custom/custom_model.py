@@ -31,6 +31,7 @@ class CustomModel:
         ])
 
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        model.summary()
         return model
 
     def train(self, X, y, epochs=10, batch_size=32):
@@ -72,6 +73,7 @@ class KerasClassifier(ClassifierModel):
 
         # Compile the model with binary crossentropy loss and an adam optimizer.
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
         return model
 
     @classmethod

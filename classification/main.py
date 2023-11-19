@@ -217,10 +217,10 @@ def keras_classifier(project):
 
 def keras_cnn_classifier(project):
     embedding_cls = GensimWord2VecModel
-    embedding_dim = 50
+    embedding_dim = 500
     classifier_cls = KerasCNNClassifier
-    max_seq_len = 300
-    epochs = 20
+    max_seq_len = 600
+    epochs = 10
 
     embedding_training_stages = [
         LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),

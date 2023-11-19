@@ -53,6 +53,7 @@ class KerasCNNClassifier(ClassifierModel):
 
         # Compile the model with binary crossentropy loss and an adam optimizer.
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
         return model
 
     @classmethod
@@ -88,9 +89,11 @@ class KerasCNNClassifier(ClassifierModel):
         history = model.fit(
             X, Y,
             epochs=epochs,
-            batch_size=batch_size
+            batch_size=batch_size,
+            validation_split=0.2
         )
         cls.plot_history(history)
+
         return cls(model, tokenizer)
 
     def predict(self, df, prediction_metadata=None):
