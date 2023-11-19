@@ -2,7 +2,7 @@ from classification.cnn.cnn_baseline import KerasCNNClassifier
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project
 from classification.custom.custom_model import KerasClassifier, KerasCountVectorizerAndDenseLayer, \
-    KerasCountVectorizerAndDenseLayerWithTokenizer, SimpleKerasClassifierWithExternalEmbedding
+    KerasTokenizerAndDenseLayer, SimpleKerasClassifierWithExternalEmbedding
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 
@@ -125,18 +125,19 @@ def keras_count_vectorizer_and_dense_layer(project):
         Pipeline(prediction_classifier_stages).run()
 
 
-def simple_keras_classifier_with_tokenizer(project):
-    max_seq_len = 500
+def keras_tokenizer_and_dense_layer(project):
+    classifier_cls = KerasTokenizerAndDenseLayer
+    max_seq_len = 600
     batch_size = 64
-    epochs = 15
-    num_words = 5000
-    embedding_dim = 100
+    epochs = 8
+    num_words = 6000
+    embedding_dim = 250
 
     training_classifier_stage = [
         LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
         LineLevelToFileLevelDatasetMapperStage(),
         ClassifierTrainingStage(
-            KerasCountVectorizerAndDenseLayerWithTokenizer,
+            classifier_cls,
             project.get_train_release().release_name,
             training_metadata={
                 'max_seq_len': max_seq_len,
@@ -148,7 +149,8 @@ def simple_keras_classifier_with_tokenizer(project):
         )
     ]
 
-    classifier = Pipeline(training_classifier_stage).run()
+    training_pipeline_data = Pipeline(training_classifier_stage).run()
+    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
@@ -167,7 +169,7 @@ def simple_keras_classifier_with_tokenizer(project):
             EvaluationStage()
         ]
 
-        output = Pipeline(prediction_classifier_stages).run()
+        Pipeline(prediction_classifier_stages).run()
 
 
 def keras_classifier(project):
@@ -308,8 +310,8 @@ if __name__ == '__main__':
 
     # mlp_classifier(project)
     # bow_classifier(project)
-    keras_count_vectorizer_and_dense_layer(project)
+    # keras_count_vectorizer_and_dense_layer(project)
+    keras_tokenizer_and_dense_layer(project)
     # keras_cnn_classifier(project)
     # keras_classifier(project)
-    # simple_keras_classifier_with_tokenizer(project)
     # simple_keras_classifier_with_external_embedding(project)

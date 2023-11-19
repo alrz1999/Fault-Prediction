@@ -220,7 +220,7 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
         return os.path.join(SIMPLE_KERAS_PREDICTION_DIR, dataset_name + '.csv')
 
 
-class KerasCountVectorizerAndDenseLayerWithTokenizer(KerasCountVectorizerAndDenseLayer):
+class KerasTokenizerAndDenseLayer(KerasCountVectorizerAndDenseLayer):
     @classmethod
     def build_model(cls, input_shape):
         model = Sequential()
@@ -243,11 +243,7 @@ class KerasCountVectorizerAndDenseLayerWithTokenizer(KerasCountVectorizerAndDens
                 trainable=True
             )
         )
-        model.add(layers.Conv1D(128, 5, activation='relu'))
-        model.add(layers.Dropout(0.25))
-        model.add(layers.GlobalMaxPooling1D())
-        model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(10, activation='relu'))
+        model.add(layers.Flatten())
         model.add(layers.Dropout(0.25))
         model.add(layers.Dense(1, activation='sigmoid'))
 
@@ -272,15 +268,15 @@ class KerasCountVectorizerAndDenseLayerWithTokenizer(KerasCountVectorizerAndDens
 
         Y = np.array([1 if label == True else 0 for label in labels])
 
-        # sm = SMOTE(random_state=42)
-        # X, Y = sm.fit_resample(X, Y)
+        sm = SMOTE(random_state=42)
+        X, Y = sm.fit_resample(X, Y)
 
-        # model = cls.build_model(input_shape=X.shape[1])
-        model = cls.build_model_with_embedding(
-            input_dim=num_words + 1,
-            max_seq_len=max_seq_len,
-            embedding_dim=embedding_dim
-        )
+        model = cls.build_model(input_shape=X.shape[1])
+        # model = cls.build_model_with_embedding(
+        #     input_dim=num_words + 1,
+        #     max_seq_len=max_seq_len,
+        #     embedding_dim=embedding_dim
+        # )
         history = model.fit(
             X, Y,
             epochs=epochs,
