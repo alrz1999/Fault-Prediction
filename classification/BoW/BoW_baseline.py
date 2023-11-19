@@ -33,7 +33,7 @@ class BOWBaseLineClassifier(ClassifierModel):
         clf = LogisticRegression(solver='liblinear')
         clf.fit(X, Y)
 
-        return BOWBaseLineClassifier(clf, vectorizer, dataset_name)
+        return cls(clf, vectorizer, dataset_name)
 
     @classmethod
     def get_vectorizer_model_path(cls, dataset_name):
@@ -44,7 +44,7 @@ class BOWBaseLineClassifier(ClassifierModel):
     def import_model(cls, dataset_name):
         clf = pickle.load(open(cls.get_model_save_path(dataset_name), 'rb'))
         vectorizer = pickle.load(open(cls.get_vectorizer_model_path(dataset_name), 'rb'))
-        return BOWBaseLineClassifier(clf, vectorizer, dataset_name)
+        return cls(clf, vectorizer, dataset_name)
 
     def export_model(self):
         pickle.dump(self.model, open(self.get_model_save_path(self.dataset_name), 'wb'))

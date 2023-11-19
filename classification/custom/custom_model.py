@@ -162,7 +162,7 @@ class KerasClassifier(ClassifierModel):
         return os.path.join(KERAS_SAVE_PREDICTION_DIR, dataset_name + '.csv')
 
 
-class SimpleKerasClassifier(ClassifierModel):
+class KerasCountVectorizerAndDenseLayer(ClassifierModel):
     def __init__(self, model, vectorizer):
         self.model = model
         self.vectorizer = vectorizer
@@ -171,15 +171,7 @@ class SimpleKerasClassifier(ClassifierModel):
     def build_model(cls, input_dim):
         model = Sequential()
         model.add(layers.Dense(512, input_dim=input_dim, activation='relu'))
-        model.add(layers.Dropout(0.25))
-        # model.add(layers.Dense(128, activation='relu'))
-        # model.add(layers.Dropout(0.25))
-        # model.add(layers.Dense(32, activation='relu'))
-        # model.add(layers.Dropout(0.25))
-        # model.add(layers.Dense(8, activation='relu'))
-        # model.add(layers.Dropout(0.25))
-        # model.add(layers.Dense(4, activation='relu'))
-        # model.add(layers.Dropout(0.25))
+        model.add(layers.Dropout(0.2))
         model.add(layers.Dense(1, activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -188,12 +180,15 @@ class SimpleKerasClassifier(ClassifierModel):
 
     @classmethod
     def train(cls, df, dataset_name, training_metadata=None):
+        epochs = training_metadata.get('epochs', 4)
+        batch_size = training_metadata.get('batch_size', 32)
+
         codes, labels = df['SRC'], df['Bug']
 
-        vectorizer = CountVectorizer()
+        vectorizer = CountVectorizer(max_df=0.7, min_df=0.002)
         vectorizer.fit(codes)
-
-        X = pd.DataFrame(vectorizer.transform(codes).toarray())
+        print(len(vectorizer.vocabulary_))
+        X = vectorizer.transform(codes).toarray()
         Y = np.array([1 if label == True else 0 for label in labels])
 
         sm = SMOTE(random_state=42)
@@ -202,8 +197,8 @@ class SimpleKerasClassifier(ClassifierModel):
         model = cls.build_model(input_dim=X.shape[1])
         history = model.fit(
             X, Y,
-            epochs=4,
-            batch_size=10
+            epochs=epochs,
+            batch_size=batch_size
         )
         cls.plot_history(history)
 
@@ -213,9 +208,9 @@ class SimpleKerasClassifier(ClassifierModel):
         return cls(model, vectorizer)
 
     def predict(self, df, prediction_metadata=None):
-        test_code, labels = df['SRC'], df['Bug']
+        codes, labels = df['SRC'], df['Bug']
 
-        X = self.vectorizer.transform(test_code).toarray()
+        X = self.vectorizer.transform(codes).toarray()
 
         Y_pred = list(map(bool, list(self.model.predict(X))))
         return Y_pred
@@ -225,7 +220,7 @@ class SimpleKerasClassifier(ClassifierModel):
         return os.path.join(SIMPLE_KERAS_PREDICTION_DIR, dataset_name + '.csv')
 
 
-class SimpleKerasClassifierWithTokenizer(SimpleKerasClassifier):
+class KerasCountVectorizerAndDenseLayerWithTokenizer(KerasCountVectorizerAndDenseLayer):
     @classmethod
     def build_model(cls, input_shape):
         model = Sequential()

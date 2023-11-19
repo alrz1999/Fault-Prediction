@@ -1,8 +1,8 @@
 from classification.cnn.cnn_baseline import KerasCNNClassifier
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project
-from classification.custom.custom_model import KerasClassifier, SimpleKerasClassifier, \
-    SimpleKerasClassifierWithTokenizer, SimpleKerasClassifierWithExternalEmbedding
+from classification.custom.custom_model import KerasClassifier, KerasCountVectorizerAndDenseLayer, \
+    KerasCountVectorizerAndDenseLayerWithTokenizer, SimpleKerasClassifierWithExternalEmbedding
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 
@@ -18,20 +18,21 @@ from pipeline.models import Pipeline, StageData
 
 def mlp_classifier(project):
     embedding_cls = GensimWord2VecModel
-    classifier_cls = MLPBaseLineClassifier
     embedding_dimension = 50
+    classifier_cls = MLPBaseLineClassifier
     max_seq_len = None
 
     training_classifier_stage = [
         LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
         LineLevelToFileLevelDatasetMapperStage(),
-        LineLevelTokenizerStage(),
+        LineLevelTokenizerStage(max_seq_len),
         EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, perform_export=True),
         EmbeddingAdderStage(),
         ClassifierTrainingStage(classifier_cls, project.get_train_release().release_name, perform_export=False)
     ]
 
     training_pipeline_data = Pipeline(training_classifier_stage).run()
+    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
@@ -40,7 +41,7 @@ def mlp_classifier(project):
             EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dimension),
             EmbeddingAdderStage(),
             PredictingClassifierStage(
-                training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL],
+                classifier,
                 eval_release.release_name,
                 output_columns=['Bug'],
                 new_columns={'project': project.name, 'train': project.get_train_release().release_name,
@@ -50,17 +51,23 @@ def mlp_classifier(project):
             EvaluationStage()
         ]
 
-        evaluation_pipeline_data = Pipeline(prediction_classifier_stages).run()
+        Pipeline(prediction_classifier_stages).run()
 
 
 def bow_classifier(project):
+    embedding_cls = None
+    embedding_dimension = 50
+    classifier_cls = BOWBaseLineClassifier
+    max_seq_len = None
+
     training_classifier_stage = [
         LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
         LineLevelToFileLevelDatasetMapperStage(),
-        ClassifierTrainingStage(BOWBaseLineClassifier, project.get_train_release().release_name)
+        ClassifierTrainingStage(classifier_cls, project.get_train_release().release_name)
     ]
 
-    classifier = Pipeline(training_classifier_stage).run()
+    training_pipeline_data = Pipeline(training_classifier_stage).run()
+    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
@@ -76,17 +83,30 @@ def bow_classifier(project):
             EvaluationStage()
         ]
 
-        output = Pipeline(prediction_classifier_stages).run()
+        Pipeline(prediction_classifier_stages).run()
 
 
-def simple_keras_classifier(project):
+def keras_count_vectorizer_and_dense_layer(project):
+    embedding_cls = None
+    embedding_dimension = 50
+    classifier_cls = KerasCountVectorizerAndDenseLayer
+    max_seq_len = None
+
     training_classifier_stage = [
         LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
         LineLevelToFileLevelDatasetMapperStage(),
-        ClassifierTrainingStage(SimpleKerasClassifier, project.get_train_release().release_name)
+        ClassifierTrainingStage(
+            classifier_cls,
+            project.get_train_release().release_name,
+            training_metadata={
+                'epochs': 4,
+                'batch_size': 64
+            }
+        )
     ]
 
-    classifier = Pipeline(training_classifier_stage).run()
+    training_pipeline_data = Pipeline(training_classifier_stage).run()
+    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
@@ -96,13 +116,13 @@ def simple_keras_classifier(project):
                 classifier,
                 eval_release.release_name,
                 output_columns=['Bug'],
-                # new_columns={'project': project.name, 'train': project.get_train_release().release_name,
-                #              'test': eval_release.release_name},
+                new_columns={'project': project.name, 'train': project.get_train_release().release_name,
+                             'test': eval_release.release_name},
             ),
             EvaluationStage()
         ]
 
-        output = Pipeline(prediction_classifier_stages).run()
+        Pipeline(prediction_classifier_stages).run()
 
 
 def simple_keras_classifier_with_tokenizer(project):
@@ -116,7 +136,7 @@ def simple_keras_classifier_with_tokenizer(project):
         LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
         LineLevelToFileLevelDatasetMapperStage(),
         ClassifierTrainingStage(
-            SimpleKerasClassifierWithTokenizer,
+            KerasCountVectorizerAndDenseLayerWithTokenizer,
             project.get_train_release().release_name,
             training_metadata={
                 'max_seq_len': max_seq_len,
@@ -272,17 +292,24 @@ def simple_keras_classifier_with_external_embedding(project):
         output = Pipeline(prediction_classifier_stages).run()
 
 
+def generate_line_level_dfs(project):
+    project.get_train_release().export_line_level_dataset()
+    for release in project.get_eval_releases():
+        release.export_line_level_dataset()
+
+
 if __name__ == '__main__':
     project = Project(
         name="activemq",
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )
+    # generate_line_level_dfs(project)
 
-    mlp_classifier(project)
+    # mlp_classifier(project)
+    # bow_classifier(project)
+    keras_count_vectorizer_and_dense_layer(project)
     # keras_cnn_classifier(project)
     # keras_classifier(project)
-    # bow_classifier(project)
-    # simple_keras_classifier(project)
     # simple_keras_classifier_with_tokenizer(project)
     # simple_keras_classifier_with_external_embedding(project)

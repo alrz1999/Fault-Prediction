@@ -32,12 +32,12 @@ def preprocess_code_line(code_line):
             code_line (string)
     """
 
-    code_line = re.sub("\'\'", "\'", code_line)
-    code_line = re.sub("\".*?\"", "<str>", code_line)
-    code_line = re.sub("\'.*?\'", "<char>", code_line)
-    code_line = re.sub('\b\d+\b', '', code_line)
-    code_line = re.sub("\\[.*?]", '', code_line)
-    code_line = re.sub("[.|,:;{}()]", ' ', code_line)
+    code_line = re.sub(r"\'\'", "\'", code_line)
+    code_line = re.sub(r"\".*?\"", "<str>", code_line)
+    code_line = re.sub(r"\'.*?\'", "<char>", code_line)
+    code_line = re.sub(r"\b\d+[xX]?\d*[abcdexkDFLfl]*\d*\b", '<num>', code_line)
+    code_line = re.sub(r"\\[.*?]", '', code_line)
+    code_line = re.sub(r"[.|,:;{}()]", ' ', code_line)
 
     for char in CHAR_TO_REMOVE:
         code_line = code_line.replace(char, ' ')

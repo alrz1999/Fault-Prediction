@@ -34,13 +34,13 @@ class MLPBaseLineClassifier(ClassifierModel):
         clf.fit(X_res_scaled, y_res)
         print('finished training model for', dataset_name)
 
-        return MLPBaseLineClassifier(clf, scaler, dataset_name)
+        return cls(clf, scaler, dataset_name)
 
     @classmethod
     def import_model(cls, dataset_name):
         model = pickle.load(open(cls.get_model_save_path(dataset_name), 'rb'))
         scaler = pickle.load(open(cls.get_scalar_save_path(dataset_name), 'rb'))
-        return MLPBaseLineClassifier(model, scaler, dataset_name)
+        return cls(model, scaler, dataset_name)
 
     @classmethod
     def get_scalar_save_path(cls, dataset_name):
