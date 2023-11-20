@@ -5,7 +5,27 @@ import os
 from data.utils import CommentDetector, preprocess_code_line, is_empty_line, get_buggy_lines_dataset_path
 
 
-class Project:
+class LineLevelDatasetImporter:
+    def get_line_level_dataset(self):
+        raise NotImplementedError()
+
+    def get_processed_line_level_dataset(self, replace_na_with_empty=True, return_blank_lines=False,
+                                         return_test_file_lines=False, return_comment_lines=False):
+        df = self.get_line_level_dataset()
+
+        if replace_na_with_empty:
+            df = df.fillna('')
+        if not return_blank_lines:
+            df = df[df['is_blank'] == False]
+        if not return_test_file_lines:
+            df = df[df['is_test_file'] == False]
+        if not return_comment_lines:
+            df = df[df['is_comment'] == False]
+
+        return df
+
+
+class Project(LineLevelDatasetImporter):
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
                           'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1'
@@ -102,7 +122,7 @@ class Project:
         return output
 
 
-class ProjectRelease:
+class ProjectRelease(LineLevelDatasetImporter):
     def __init__(self, project_name, release_name, line_level_dataset_save_dir=None, file_level_dataset_save_dir=None,
                  line_level_bug_repository=None, file_level_bug_repository=None):
 
@@ -170,7 +190,7 @@ class LineLevelBugRepository:
         )
 
 
-class SourceCodeFile:
+class SourceCodeFile(LineLevelDatasetImporter):
     def __init__(self, filename, code, is_buggy, line_level_dataset_save_dir, line_level_bug_repository=None):
         self.line_level_dataset_save_dir = line_level_dataset_save_dir
         self.filename = filename

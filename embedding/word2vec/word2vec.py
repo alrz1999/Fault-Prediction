@@ -3,6 +3,7 @@ import os
 import gensim
 import numpy as np
 from gensim.models import Word2Vec
+from keras.src.preprocessing.text import Tokenizer
 
 from config import WORD2VEC_DIR
 from embedding.models import EmbeddingModel
@@ -42,19 +43,31 @@ class GensimWord2VecModel(EmbeddingModel):
         embedding_dimension = kwargs.get('embedding_dimension', 50)
         return os.path.join(WORD2VEC_DIR, dataset_name + '-' + str(embedding_dimension) + 'dim.bin')
 
-    def get_embeddings(self, data):
-        embeddings = []
-        for code in data:
-            code_embeddings = [
+    def text_to_vec(self, texts):
+        vecs = []
+        for text in texts:
+            vec = [
                 self.model.wv[word] if word in self.model.wv else np.zeros(self.model.vector_size) for word
                 in
-                code.split()]
-            code_embeddings = np.mean(code_embeddings, axis=0)
-            embeddings.append(code_embeddings)
-        return embeddings
+                text.split()]
+            vec = np.mean(vec, axis=0)
+            vecs.append(vec)
+        return vecs
 
-    def get_embedding_matrix(self, word_index, embedding_dim):
-        vocab_size = len(word_index) + 1  # Adding again 1 because of reserved 0 index
+    def text_to_indexes(self, texts):
+        texts_indexes = []
+        for text in texts:
+            text_indexes = [
+                self.model.wv.key_to_index[word] for word
+                in
+                text.split() if word in self.model.wv.key_to_index]
+            texts_indexes.append(text_indexes)
+        return texts_indexes
+
+    def get_word_to_index_dict(self):
+        return self.model.wv.key_to_index
+
+    def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
         embedding_matrix = np.zeros((vocab_size, embedding_dim))
 
         for word in self.model.wv.index_to_key:
@@ -64,29 +77,36 @@ class GensimWord2VecModel(EmbeddingModel):
 
         return embedding_matrix
 
+    def get_vocab_size(self):
+        return len(self.model.wv.index_to_key)
 
-class GensimWord2VecModelIndexer(GensimWord2VecModel):
-    def get_embeddings(self, data):
-        padding_idx = self.model.wv.key_to_index['<pad>']
+    def get_embedding_dimension(self):
+        return self.embedding_dimension
 
-        embeddings = []
-        for code in data:
-            code_embeddings = [
-                self.model.wv.key_to_index[word] if word in self.model.wv.key_to_index.keys() else len(
-                    self.model.wv.key_to_index) for word
-                in code.split()
-            ]
 
-            embeddings.append(code_embeddings)
+class KerasTokenizer(EmbeddingModel):
+    def __init__(self, tokenizer, embedding_dimension):
+        self.embedding_dimension = embedding_dimension
+        self.tokenizer = tokenizer
 
-        max_seq_len = min(max([len(code_embedding) for code_embedding in embeddings]), 45000)
+    @classmethod
+    def train(cls, data, **kwargs):
+        embedding_dimension = kwargs.get('embedding_dimension', 50)
+        tokenizer = Tokenizer()
+        tokenizer.fit_on_texts(data)
+        return cls(tokenizer, embedding_dimension)
 
-        features = np.zeros((len(embeddings), max_seq_len), dtype=int)
+    def text_to_indexes(self, texts):
+        return self.tokenizer.texts_to_sequences(texts)
 
-        for i, row in enumerate(embeddings):
-            if len(row) > max_seq_len:
-                features[i, :] = row[:max_seq_len]
-            else:
-                features[i, :] = row + [padding_idx] * (max_seq_len - len(row))
+    def get_word_to_index_dict(self):
+        return self.tokenizer.word_index
 
-        return features.tolist()
+    def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
+        return None
+
+    def get_vocab_size(self):
+        return len(self.get_word_to_index_dict()) + 1
+
+    def get_embedding_dimension(self):
+        return self.embedding_dimension

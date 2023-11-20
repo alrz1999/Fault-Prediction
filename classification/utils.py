@@ -30,7 +30,7 @@ class LineLevelToFileLevelDatasetMapper:
         all_file_label = []
 
         for filename, group_df in df.groupby('filename'):
-            file_label = bool(group_df['file-label'].unique())
+            file_label = bool(group_df['file-label'].unique().any())
 
             code = list(group_df['code_line'])
 

@@ -96,7 +96,7 @@ class LineLevelDatasetHelper:
         file_labels = []
 
         for filename, group_df in self.df.groupby('filename'):
-            file_label = bool(group_df['file-label'].unique())
+            file_label = bool(group_df['file-label'].unique().any())
 
             lines = list(group_df['code_line'])
 

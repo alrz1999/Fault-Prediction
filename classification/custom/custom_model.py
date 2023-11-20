@@ -323,7 +323,7 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
         tokenizer = Tokenizer(num_words=10000)
         tokenizer.fit_on_texts(codes)
 
-        embedding_matrix = embedding_model.get_embedding_matrix(tokenizer.word_index, embedding_dim)
+        embedding_matrix = embedding_model.get_index_to_vec_matrix(tokenizer.word_index, embedding_dim)
         X = tokenizer.texts_to_sequences(codes)
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
 

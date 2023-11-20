@@ -44,6 +44,8 @@ class StageData(dict):
         CLASSIFIER_MODEL = 'classifier_model'
         PREDICTION_RESULT_DF = 'prediction_result_df'
 
+        INDEX_TO_VEC_MATRIX ='index_to_vec_matrix'
+
     def combine_with(self, another_stage_data: dict):
         if another_stage_data is None:
             return

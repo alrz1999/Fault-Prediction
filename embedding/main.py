@@ -16,14 +16,14 @@ def main():
     train_release = project.get_train_release()
 
     stages = [
-        LineLevelDatasetImporterStage(train_release.get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(train_release),
         LineLevelTokenizerStage(),
         EmbeddingModelTrainingStage(GensimWord2VecModel, project.name, 50, perform_export=False)
     ]
 
     pipeline_data = Pipeline(stages).run()
     model: EmbeddingModel = pipeline_data[StageData.Keys.EMBEDDING_MODEL]
-    print(model.get_embeddings(['if']))
+    print(model.text_to_vec(['if']))
 
 
 if __name__ == '__main__':

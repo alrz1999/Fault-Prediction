@@ -19,7 +19,13 @@ class ClassifierTrainingStage(PipelineStage):
         train_data = self.stage_data[StageData.Keys.FILE_LEVEL_DF]
         if StageData.Keys.EMBEDDING in self.stage_data and StageData.Keys.EMBEDDING.value not in self.training_metadata:
             self.training_metadata['embedding'] = self.stage_data[StageData.Keys.EMBEDDING]
-        model = self.classifier_cls.train(train_data, self.dataset_name, training_metadata=self.training_metadata)
+        if StageData.Keys.INDEX_TO_VEC_MATRIX in self.stage_data and StageData.Keys.INDEX_TO_VEC_MATRIX.value not in self.training_metadata:
+            self.training_metadata['embedding_matrix'] = self.stage_data[StageData.Keys.INDEX_TO_VEC_MATRIX]
+        model = self.classifier_cls.train(
+            train_data,
+            self.dataset_name,
+            training_metadata=self.training_metadata
+        )
         self.result = model
         self.stage_data[StageData.Keys.CLASSIFIER_MODEL] = self.result
 

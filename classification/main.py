@@ -6,12 +6,12 @@ from classification.custom.custom_model import KerasClassifier, KerasCountVector
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 
-from embedding.word2vec.word2vec import GensimWord2VecModel, GensimWord2VecModelIndexer
+from embedding.word2vec.word2vec import GensimWord2VecModel, KerasTokenizer
 from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
 from pipeline.datas.file_level import LineLevelToFileLevelDatasetMapperStage
 from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
 from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage, \
-    EmbeddingAdderStage
+    EmbeddingAdderStage, IndexToVecMatrixAdderStage
 from pipeline.evaluation.evaluation import EvaluationStage
 from pipeline.models import Pipeline, StageData
 
@@ -23,7 +23,7 @@ def mlp_classifier(project):
     max_seq_len = None
 
     training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelToFileLevelDatasetMapperStage(),
         LineLevelTokenizerStage(max_seq_len),
         EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, perform_export=True),
@@ -36,7 +36,7 @@ def mlp_classifier(project):
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
+            LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
             EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dimension),
             EmbeddingAdderStage(),
@@ -61,7 +61,7 @@ def bow_classifier(project):
     max_seq_len = None
 
     training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelToFileLevelDatasetMapperStage(),
         ClassifierTrainingStage(classifier_cls, project.get_train_release().release_name)
     ]
@@ -71,7 +71,7 @@ def bow_classifier(project):
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
+            LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
                 classifier,
@@ -93,7 +93,7 @@ def keras_count_vectorizer_and_dense_layer(project):
     max_seq_len = None
 
     training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelToFileLevelDatasetMapperStage(),
         ClassifierTrainingStage(
             classifier_cls,
@@ -110,7 +110,7 @@ def keras_count_vectorizer_and_dense_layer(project):
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
+            LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
                 classifier,
@@ -134,7 +134,7 @@ def keras_tokenizer_and_dense_layer(project):
     embedding_dim = 250
 
     training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelToFileLevelDatasetMapperStage(),
         ClassifierTrainingStage(
             classifier_cls,
@@ -154,7 +154,7 @@ def keras_tokenizer_and_dense_layer(project):
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
+            LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
                 classifier,
@@ -179,7 +179,7 @@ def keras_classifier(project):
     max_seq_len = 300
 
     training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelToFileLevelDatasetMapperStage(),
         ClassifierTrainingStage(
             classifier_cls,
@@ -198,7 +198,7 @@ def keras_classifier(project):
 
     for eval_release in project.get_eval_releases():
         prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
+            LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
                 classifier,
@@ -216,14 +216,15 @@ def keras_classifier(project):
 
 
 def keras_cnn_classifier(project):
-    embedding_cls = GensimWord2VecModel
-    embedding_dim = 500
+    embedding_cls = KerasTokenizer
+    embedding_dim = 50
     classifier_cls = KerasCNNClassifier
-    max_seq_len = 600
-    epochs = 10
+    max_seq_len = 200
+    epochs = 5
 
     embedding_training_stages = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release()),
+        # LineLevelDatasetImporterStage(project),
         LineLevelToFileLevelDatasetMapperStage(),
         LineLevelTokenizerStage(),
         EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim),
@@ -233,6 +234,7 @@ def keras_cnn_classifier(project):
     embedding_model = embedding_pipeline_data[StageData.Keys.EMBEDDING_MODEL]
 
     classifier_training_stages = [
+        IndexToVecMatrixAdderStage(),
         ClassifierTrainingStage(
             classifier_cls,
             project.get_train_release().release_name,
@@ -242,7 +244,7 @@ def keras_cnn_classifier(project):
                 'embedding_model': embedding_model,
                 'max_seq_len': max_seq_len,
                 'epochs': epochs,
-                'num_words': 5000,
+                'num_words': 4000,
             }
         )
     ]
@@ -252,7 +254,7 @@ def keras_cnn_classifier(project):
 
     for eval_release in project.get_eval_releases():
         classifier_prediction_stages = [
-            LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
+            LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
                 classifier,
@@ -260,6 +262,7 @@ def keras_cnn_classifier(project):
                 output_columns=['Bug'],
                 prediction_metadata={
                     'max_seq_len': max_seq_len,
+                    'embedding_model': embedding_model,
                 },
                 perform_export=False
             ),
@@ -276,7 +279,7 @@ def simple_keras_classifier_with_external_embedding(project):
     max_seq_len = 400
 
     embedding_training_stages = [
-        # LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        # LineLevelDatasetImporterStage(project.get_train_release()),
         # LineLevelTokenizerStage(max_seq_len=max_seq_len),
         # EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, perform_export=True),
         EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dim)
@@ -286,7 +289,7 @@ def simple_keras_classifier_with_external_embedding(project):
     embedding_model = embedding_pipeline_data[StageData.Keys.EMBEDDING_MODEL]
 
     classifier_training_stages = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelToFileLevelDatasetMapperStage(),
         ClassifierTrainingStage(
             classifier_cls,
@@ -304,7 +307,7 @@ def simple_keras_classifier_with_external_embedding(project):
 
     for eval_release in project.get_eval_releases():
         classifier_prediction_stages = [
-            LineLevelDatasetImporterStage(eval_release.get_line_level_dataset_path()),
+            LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
                 classifier,
@@ -340,5 +343,5 @@ if __name__ == '__main__':
     # keras_count_vectorizer_and_dense_layer(project)
     # keras_tokenizer_and_dense_layer(project)
     # keras_classifier(project)
-    # keras_cnn_classifier(project)
-    simple_keras_classifier_with_external_embedding(project)
+    keras_cnn_classifier(project)
+    # simple_keras_classifier_with_external_embedding(project)

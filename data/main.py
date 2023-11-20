@@ -12,7 +12,7 @@ def main():
     )
 
     stages = [
-        LineLevelDatasetImporterStage(project.get_train_release().get_line_level_dataset_path()),
+        LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelTokenizerStage()
     ]
     pipeline_data = Pipeline(stages).run()
