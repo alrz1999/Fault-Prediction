@@ -67,14 +67,15 @@ def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_dat
 
 
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
-             classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs):
+             classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs, vocab_size=None):
     metadata = StageData({
         'dataset_name': train_dataset_name,
         'embedding_dim': embedding_dim,
         'max_seq_len': max_seq_len,
         'batch_size': batch_size,
         'epochs': epochs,
-        'token_extractor': token_extractor
+        'token_extractor': token_extractor,
+        'vocab_size': vocab_size
     })
 
     pipeline_data = get_data_importer_pipeline_data(
@@ -174,19 +175,21 @@ def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_im
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=KerasClassifier,
-        embedding_cls=KerasTextVectorizer,
-        token_extractor=CustomTokenExtractor(True, max_seq_len),
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=ASTTokenizer(True),
+        # token_extractor=ASTTokenizer(True),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=64,
-        epochs=8
+        epochs=8,
+        vocab_size=10000
     )
 
 
 def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 200
-    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
-    # token_extractor = ASTTokenizer(cross_project=False)
+    max_seq_len = 150
+    # token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
+    token_extractor = ASTTokenizer(cross_project=False)
     # token_extractor = ASTExtractor()
 
     classify(
@@ -266,6 +269,6 @@ if __name__ == '__main__':
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)

@@ -78,6 +78,7 @@ class KerasClassifier(ClassifierModel):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
 
         codes, labels = df['SRC'], df['Bug']
 
@@ -85,6 +86,7 @@ class KerasClassifier(ClassifierModel):
         vocab_size = embedding_model.get_vocab_size()
         embedding_dim = embedding_model.get_embedding_dim()
 
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
         Y = np.array([1 if label == True else 0 for label in labels])
 
         model = cls.build_model(vocab_size, embedding_dim)
@@ -99,10 +101,13 @@ class KerasClassifier(ClassifierModel):
         return cls(model, embedding_model)
 
     def predict(self, df, metadata=None):
+        max_seq_len = metadata.get('max_seq_len')
+
         codes, labels = df['SRC'], df['Bug']
 
         X_test = self.embedding_model.text_to_indexes(codes)
 
+        X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
         Y_pred = list(map(bool, list(self.model.predict(X_test))))
 
         return Y_pred
@@ -133,6 +138,7 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
         epochs = metadata.get('epochs', 4)
         batch_size = metadata.get('batch_size', 32)
         embedding_model = metadata.get('embedding_model')
+        max_seq_len = metadata.get('max_seq_len')
 
         codes, labels = df['SRC'], df['Bug']
 
@@ -140,6 +146,7 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
         vocab_size = embedding_model.get_vocab_size()
         embedding_dim = embedding_model.get_embedding_dim()
 
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
         Y = np.array([1 if label == True else 0 for label in labels])
 
         sm = SMOTE(random_state=42)
@@ -160,10 +167,13 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
         return cls(model, embedding_model)
 
     def predict(self, df, metadata=None):
+        max_seq_len = metadata.get('max_seq_len')
+
         codes, labels = df['SRC'], df['Bug']
 
         X = self.embedding_model.text_to_indexes(codes).toarray()
 
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
         Y_pred = list(map(bool, list(self.model.predict(X))))
         return Y_pred
 

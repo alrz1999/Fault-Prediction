@@ -118,7 +118,6 @@ class ASTTokenizer(TokenExtractor):
                     pass
             return tokens
         except:
-            print(input_text)
             return CustomTokenExtractor().extract_tokens(input_text)
 
     @staticmethod

@@ -127,7 +127,7 @@ class SklearnCountTokenizer(EmbeddingModel):
     @classmethod
     def train(cls, texts, metadata):
         embedding_dim = metadata.get('embedding_dim')
-        vectorizer = CountVectorizer(max_df=0.7, min_df=0.002)
+        vectorizer = CountVectorizer()
         vectorizer.fit(texts)
         return cls(vectorizer, embedding_dim)
 
