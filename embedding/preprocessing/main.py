@@ -14,7 +14,7 @@ def main():
     tokenizer = CFGTokenExtractor()
 
     stages = [
-        FileLevelDatasetImporterStage(project.get_train_release().get_file_level_dataset_path()),
+        FileLevelDatasetImporterStage(project.get_train_release()),
     ]
 
     pipeline_data = Pipeline(stages).run()[StageData.Keys.FILE_LEVEL_DF]

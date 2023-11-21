@@ -5,12 +5,12 @@ import pandas as pd
 
 class FileLevelDatasetImporterStage(PipelineStage):
 
-    def __init__(self, file_path):
+    def __init__(self, file_level_dataset_importer):
         super().__init__()
-        self.file_path = file_path
+        self.file_level_dataset_importer = file_level_dataset_importer
 
     def import_df(self):
-        return pd.read_csv(self.file_path, encoding='latin')
+        return self.file_level_dataset_importer.get_file_level_dataset()
 
     def process(self):
         self.result = self.import_df()

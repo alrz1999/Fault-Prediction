@@ -5,11 +5,11 @@ from classification.custom.custom_model import KerasClassifier, KerasCountVector
     KerasTokenizerAndDenseLayer, SimpleKerasClassifierWithExternalEmbedding
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
-from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenExtractor
+from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
 
 from embedding.word2vec.word2vec import GensimWord2VecModel, KerasTokenizer
 from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
-from pipeline.datas.file_level import LineLevelToFileLevelDatasetMapperStage
+from pipeline.datas.file_level import LineLevelToFileLevelDatasetMapperStage, FileLevelDatasetImporterStage
 from pipeline.datas.line_level import LineLevelDatasetImporterStage
 from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage, \
     EmbeddingAdderStage, IndexToVecMatrixAdderStage
@@ -219,17 +219,18 @@ def keras_classifier(project):
 
 def keras_cnn_classifier(project):
     embedding_cls = GensimWord2VecModel
-    embedding_dim = 300
+    embedding_dim = 50
     classifier_cls = KerasCNNClassifier
-    max_seq_len = 300
+    max_seq_len = 200
     epochs = 4
-    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
-    # token_extractor = ASTTokenExtractor(cross_project=False)
+    # token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
+    # token_extractor = ASTTokenizer(cross_project=False)
+    token_extractor = ASTExtractor()
 
     embedding_training_stages = [
-        LineLevelDatasetImporterStage(project.get_train_release()),
+        FileLevelDatasetImporterStage(project.get_train_release()),
         # LineLevelDatasetImporterStage(project),
-        LineLevelToFileLevelDatasetMapperStage(),
+        # LineLevelToFileLevelDatasetMapperStage(),
         EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, token_extractor),
     ]
 
@@ -256,8 +257,8 @@ def keras_cnn_classifier(project):
 
     for eval_release in project.get_eval_releases():
         classifier_prediction_stages = [
-            LineLevelDatasetImporterStage(eval_release),
-            LineLevelToFileLevelDatasetMapperStage(),
+            FileLevelDatasetImporterStage(eval_release),
+            # LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
                 classifier,
                 eval_release.release_name,

@@ -84,21 +84,20 @@ class CFGTokenExtractor(TokenExtractor):
         return tokens
 
 
-class ASTTokenExtractor(TokenExtractor):
+class ASTTokenizer(TokenExtractor):
     def __init__(self, cross_project=False):
         self.cross_project = cross_project
 
     def extract_tokens(self, input_text):
         # TODO line by line tokenization can be supported
         # TODO masking and using placeholder instead of some types like Identifiers
-        tokens = []
-
         try:
+            tokens = []
             for token in javalang.tokenizer.tokenize(input_text, ignore_errors=True):
                 if isinstance(token, javalang.tokenizer.Separator):
                     continue
 
-                if isinstance(token, ASTTokenExtractor.get_number_token_types()):
+                if isinstance(token, ASTTokenizer.get_number_token_types()):
                     tokens.append("<num>")
                 elif isinstance(token, javalang.tokenizer.String):
                     tokens.append("<str>")
@@ -117,24 +116,10 @@ class ASTTokenExtractor(TokenExtractor):
                     pass
                 if isinstance(token, javalang.tokenizer.BasicType):
                     pass
+            return tokens
         except:
             print(input_text)
             return CustomTokenExtractor().extract_tokens(input_text)
-
-        return tokens
-
-    @staticmethod
-    def get_default_desired_token_types():
-        return (
-            javalang.tokenizer.Modifier,
-            javalang.tokenizer.Keyword,
-            javalang.tokenizer.Identifier,
-            # javalang.tokenizer.Separator,
-            javalang.tokenizer.BasicType,
-            javalang.tokenizer.DecimalInteger,
-            javalang.tokenizer.Operator,
-            javalang.tokenizer.String,
-        )
 
     @staticmethod
     def get_number_token_types():
@@ -150,12 +135,28 @@ class ASTTokenExtractor(TokenExtractor):
             javalang.tokenizer.HexFloatingPoint,
         )
 
-    @staticmethod
-    def tokenize_by_type(input_text, desired_token_types=None):
-        tokens = []
 
-        # if desired_token_types is None:
-        #     desired_token_types = ASTTokenExtractor.get_default_desired_token_types()
+class ASTExtractor(TokenExtractor):
+    def extract_tokens(self, input_text):
+        try:
+            tokens = []
+            tree = javalang.parse.parse(input_text)
+            for path, node in tree:
+                tokens.append(node.__class__.__name__)
+            return tokens
+        except:
+            print(input_text)
+            return []
+            tokens = []
+            lines = input_text.splitlines()
+            for line in lines:
+                try:
+                    tree = javalang.parse.parse_expression(line)
+                    for path, node in tree:
+                        tokens.append(node.__class__.__name__)
+                except:
+                    print(line)
+            return tokens
 
 
 def test():
@@ -205,7 +206,7 @@ def test():
         print("----------------------------------------------------")
 
     print(final_str)
-    ASTTokenExtractor().extract_tokens(input_text)
+    print(ASTExtractor().extract_tokens(input_text))
 
 
 if __name__ == "__main__":

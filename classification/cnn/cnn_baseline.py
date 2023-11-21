@@ -37,7 +37,7 @@ class KerasCNNClassifier(ClassifierModel):
 
         # Modified CNN layers similar to the provided architecture.
         # model.add(layers.Conv1D(100, 5, padding="same", activation="relu", strides=1))
-        model.add(layers.Conv1D(16, 5, padding="same", activation="relu"))
+        model.add(layers.Conv1D(100, 5, padding="same", activation="relu"))
         # model.add(layers.MaxPooling1D())
         # model.add(layers.Dropout(0.2))
         # model.add(layers.Flatten())
@@ -60,7 +60,7 @@ class KerasCNNClassifier(ClassifierModel):
         # Vanilla hidden layer:
         # model.add(layers.Conv1D(filters=4, kernel_size=5, padding='same', activation='relu'))
         # model.add(layers.Dropout(0.5))
-        model.add(layers.Dense(16, activation="relu"))
+        # model.add(layers.Dense(16, activation="relu"))
         # model.add(layers.Dropout(0.5))
         # model.add(layers.GRU(2))
         # Project onto a single unit output layer, and squash it with a sigmoid:

@@ -5,6 +5,11 @@ import os
 from data.utils import CommentDetector, is_empty_line, get_buggy_lines_dataset_path
 
 
+class FileLevelDatasetImporter:
+    def get_file_level_dataset(self):
+        raise NotImplementedError()
+
+
 class LineLevelDatasetImporter:
     def get_line_level_dataset(self):
         raise NotImplementedError()
@@ -25,7 +30,7 @@ class LineLevelDatasetImporter:
         return df
 
 
-class Project(LineLevelDatasetImporter):
+class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
                           'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1'
@@ -122,7 +127,7 @@ class Project(LineLevelDatasetImporter):
         return output
 
 
-class ProjectRelease(LineLevelDatasetImporter):
+class ProjectRelease(LineLevelDatasetImporter, FileLevelDatasetImporter):
     def __init__(self, project_name, release_name, line_level_dataset_save_dir=None, file_level_dataset_save_dir=None,
                  line_level_bug_repository=None, file_level_bug_repository=None):
 
