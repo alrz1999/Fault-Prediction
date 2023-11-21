@@ -50,6 +50,10 @@ class StageData(dict):
         for key, val in another_stage_data.items():
             self[key] = val
 
+    def add_data(self, key, value):
+        if value is not None:
+            self[key] = value
+
 
 class PipelineStage:
     def __init__(self, stage_data=None, perform_export=False):

@@ -8,9 +8,16 @@ class EmbeddingModelTrainingStage(PipelineStage):
                  stage_data=None, perform_export=False, is_file_level=True):
         super().__init__(stage_data, perform_export)
         self.embedding_cls = embedding_cls
+
         self.dataset_name = dataset_name
+        self.stage_data.add_data('dataset_name', dataset_name)
+
         self.embedding_dim = embedding_dim
+        self.stage_data.add_data('embedding_dim', embedding_dim)
+
         self.token_extractor = token_extractor
+        self.stage_data.add_data('token_extractor', token_extractor)
+
         self.is_file_level = is_file_level
 
     def export_result(self):
@@ -20,6 +27,8 @@ class EmbeddingModelTrainingStage(PipelineStage):
         self.result.export_model()
 
     def process(self):
+        if self.token_extractor is not None:
+            self.stage_data['token_extractor'] = self.token_extractor
         if self.is_file_level:
             texts = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]['SRC'].tolist()
         else:
@@ -38,9 +47,15 @@ class EmbeddingModelImporterStage(PipelineStage):
     def __init__(self, embedding_cls, dataset_name, embedding_dim, token_extractor):
         super().__init__()
         self.embedding_cls = embedding_cls
+
         self.dataset_name = dataset_name
+        self.stage_data.add_data('dataset_name', dataset_name)
+
         self.embedding_dim = embedding_dim
+        self.stage_data.add_data('embedding_dim', embedding_dim)
+
         self.token_extractor = token_extractor
+        self.stage_data.add_data('token_extractor', token_extractor)
 
     def import_model(self):
         model = self.embedding_cls.import_model(
