@@ -106,6 +106,8 @@ class ASTTokenExtractor(TokenExtractor):
                     tokens.append("<char>")
                 elif isinstance(token, javalang.tokenizer.Boolean):
                     tokens.append("<bool>")
+                elif isinstance(token, javalang.tokenizer.Operator):
+                    tokens.append("<op>")
                 elif self.cross_project and isinstance(token, javalang.tokenizer.Identifier):
                     tokens.append("<identifier>")
                 else:
