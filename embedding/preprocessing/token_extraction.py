@@ -8,6 +8,52 @@ class TokenExtractor:
         pass
 
 
+class CustomTokenExtractor(TokenExtractor):
+    def __init__(self, to_lowercase=False, max_seq_len=None):
+        self.to_lowercase = to_lowercase
+        self.max_seq_len = max_seq_len
+
+    def extract_tokens(self, input_text):
+        input_text = re.sub('\\s+', ' ', input_text)
+        input_text = self.preprocess_code_line(input_text)
+        if self.to_lowercase:
+            input_text = input_text.lower()
+
+        tokens = input_text.strip().split()
+
+        if self.max_seq_len is not None:
+            tokens_count = len(tokens)
+
+            tokens = tokens[:self.max_seq_len]
+
+            if tokens_count < self.max_seq_len:
+                tokens = tokens + ['<pad>'] * (self.max_seq_len - tokens_count)
+
+        return tokens
+
+    @classmethod
+    def preprocess_code_line(cls, code_line):
+        """
+            input
+                code_line (string)
+        """
+        CHAR_TO_REMOVE = ['+', '-', '*', '/', '=', '++', '--', '\\', '<str>', '<char>', '|', '&', '!']
+
+        code_line = re.sub(r"\'\'", "\'", code_line)
+        code_line = re.sub(r"\".*?\"", "<str>", code_line)
+        code_line = re.sub(r"\'.*?\'", "<char>", code_line)
+        code_line = re.sub(r"\b\d+[xX]?\d*[abcdexkDFLfl]*\d*\b", '<num>', code_line)
+        code_line = re.sub(r"\\[.*?]", '', code_line)
+        code_line = re.sub(r"[.|,:;{}()]", ' ', code_line)
+
+        for char in CHAR_TO_REMOVE:
+            code_line = code_line.replace(char, ' ')
+
+        code_line = code_line.strip()
+
+        return code_line
+
+
 class RawTextTokenExtractor(TokenExtractor):
     def extract_tokens(self, input_text):
         # Split the input text into tokens using whitespace as the delimiter
@@ -39,49 +85,39 @@ class CFGTokenExtractor(TokenExtractor):
 
 
 class ASTTokenExtractor(TokenExtractor):
-    def extract_tokens(self, input_text):
-        tree = javalang.parse.parse(input_text)
+    def __init__(self, cross_project=False):
+        self.cross_project = cross_project
 
+    def extract_tokens(self, input_text):
+        # TODO line by line tokenization can be supported
+        # TODO masking and using placeholder instead of some types like Identifiers
         tokens = []
 
-        def traverse(node):
-            if isinstance(node, javalang.parser.tree.VariableDeclarator):
-                pass
-            elif isinstance(node, javalang.parser.tree.MethodDeclaration):
-                pass
-            elif isinstance(node, javalang.parser.tree.ClassDeclaration):
-                pass
-            elif isinstance(node, javalang.parser.tree.Literal):
-                pass
-            elif isinstance(node, javalang.parser.JavaToken):
-                print(node)
-            elif isinstance(node, javalang.tokenizer.Identifier):
-                pass
+        try:
+            for token in javalang.tokenizer.tokenize(input_text, ignore_errors=True):
+                if isinstance(token, javalang.tokenizer.Separator):
+                    continue
 
-            if isinstance(node, javalang.parser.tree.VariableDeclarator):
-                # Extract tokens from the children of VariableDeclarator nodes
-                for child in node.children:
-                    if isinstance(child, javalang.tokenizer.Identifier):
-                        tokens.append(child.value)
-            elif isinstance(node, javalang.parser.tree.MethodDeclaration):
-                # Extract tokens from the children of MethodDeclaration nodes
-                for child in node.children:
-                    if isinstance(child, javalang.tokenizer.Identifier):
-                        tokens.append(child.value)
-            elif isinstance(node, javalang.parser.tree.ClassDeclaration):
-                # Extract tokens from the children of ClassDeclaration nodes
-                for child in node.children:
-                    if isinstance(child, javalang.tokenizer.Identifier):
-                        tokens.append(child.value)
+                if isinstance(token, ASTTokenExtractor.get_number_token_types()):
+                    tokens.append("<num>")
+                elif isinstance(token, javalang.tokenizer.String):
+                    tokens.append("<str>")
+                elif isinstance(token, javalang.tokenizer.Character):
+                    tokens.append("<char>")
+                elif isinstance(token, javalang.tokenizer.Boolean):
+                    tokens.append("<bool>")
+                elif self.cross_project and isinstance(token, javalang.tokenizer.Identifier):
+                    tokens.append("<identifier>")
+                else:
+                    tokens.append(token.value)
 
-            # Check if the node has children before trying to access them
-            if hasattr(node, 'children'):
-                for child in node.children:
-                    traverse(child)
-
-        # Start the traversal from the root of the AST
-        for path, node in tree:
-            traverse(node)
+                if isinstance(token, javalang.tokenizer.Modifier):
+                    pass
+                if isinstance(token, javalang.tokenizer.BasicType):
+                    pass
+        except:
+            print(input_text)
+            return CustomTokenExtractor().extract_tokens(input_text)
 
         return tokens
 
@@ -99,34 +135,60 @@ class ASTTokenExtractor(TokenExtractor):
         )
 
     @staticmethod
-    def tokenize(input_text, desired_token_types=None):
-        # TODO line by line tokenization can be supported
-        # TODO masking and using placeholder instead of some types like Identifiers
+    def get_number_token_types():
+        return (
+            javalang.tokenizer.Integer,
+            javalang.tokenizer.DecimalInteger,
+            javalang.tokenizer.BinaryInteger,
+            javalang.tokenizer.OctalInteger,
+            javalang.tokenizer.HexInteger,
+
+            javalang.tokenizer.FloatingPoint,
+            javalang.tokenizer.DecimalFloatingPoint,
+            javalang.tokenizer.HexFloatingPoint,
+        )
+
+    @staticmethod
+    def tokenize_by_type(input_text, desired_token_types=None):
         tokens = []
 
-        if desired_token_types is None:
-            desired_token_types = ASTTokenExtractor.get_default_desired_token_types()
-
-        for token in javalang.tokenizer.tokenize(input_text):
-            if isinstance(token, desired_token_types):
-                tokens.append(token.value)
-
-        return tokens
+        # if desired_token_types is None:
+        #     desired_token_types = ASTTokenExtractor.get_default_desired_token_types()
 
 
 def test():
     input_text = """
+    // Salam
     public class Example {
         int x = 10;
-        public void myMethod() {
+        public bool myMethod(Mm in1) {
             String message = "Hello, World!";
+            if (a == 1){
             System.out.println(message);
+            }
         }
     }
     """
     tree = javalang.parse.parse(input_text)
+    depth = 1
+    final_str = ""
     for path, node in tree:
         print("----------------------------------------------------")
+
+        if len(path) < depth:
+            final_str += "\n"
+        depth = len(path)
+        if hasattr(node, 'modifiers') and len(node.modifiers) > 0:
+            final_str += f" {list(node.modifiers)[0]}"
+        if hasattr(node, 'return_type'):
+            if node.return_type is None:
+                final_str += " void "
+        if isinstance(node, javalang.parser.tree.ClassDeclaration):
+            final_str += " class "
+        if hasattr(node, 'name'):
+            final_str += f" {node.name} "
+        if hasattr(node, 'value'):
+            final_str += f" {node.value}"
 
         print(type(path), len(path))
         for x in path:
@@ -134,12 +196,20 @@ def test():
                 print([type(y) for y in x])
             else:
                 print(type(x))
-        print(type(node))
+        print(node.__class__.__name__)
         print(node)
         print(node.children)
         print(node.position)
         print("----------------------------------------------------")
 
+    print(final_str)
+    ASTTokenExtractor().extract_tokens(input_text)
+
 
 if __name__ == "__main__":
     test()
+    # TODO
+    # return file level tokens
+    # return class level tokens
+    # return method level tokens
+    # return line level tokens

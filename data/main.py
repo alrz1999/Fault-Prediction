@@ -1,5 +1,6 @@
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from data.models import Project
+from embedding.preprocessing.token_extraction import CustomTokenExtractor
 from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
 from pipeline.models import Pipeline, StageData
 
@@ -10,10 +11,11 @@ def main():
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )
+    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=None)
 
     stages = [
         LineLevelDatasetImporterStage(project.get_train_release()),
-        LineLevelTokenizerStage()
+        LineLevelTokenizerStage(token_extractor)
     ]
     pipeline_data = Pipeline(stages).run()
     print(pipeline_data[StageData.Keys.LINE_LEVEL_TOKENS][0])

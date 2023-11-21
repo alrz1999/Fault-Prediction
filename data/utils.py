@@ -4,12 +4,11 @@ from config import ORIGINAL_BUGGY_LINES_DATA_DIR
 import re
 import more_itertools
 
+from embedding.preprocessing.token_extraction import TokenExtractor
+
 
 def get_buggy_lines_dataset_path(release):
     return os.path.join(ORIGINAL_BUGGY_LINES_DATA_DIR, release + '_defective_lines_dataset.csv')
-
-
-CHAR_TO_REMOVE = ['+', '-', '*', '/', '=', '++', '--', '\\', '<str>', '<char>', '|', '&', '!']
 
 
 def is_empty_line(code_line):
@@ -24,27 +23,6 @@ def is_empty_line(code_line):
         return True
 
     return False
-
-
-def preprocess_code_line(code_line):
-    """
-        input
-            code_line (string)
-    """
-
-    code_line = re.sub(r"\'\'", "\'", code_line)
-    code_line = re.sub(r"\".*?\"", "<str>", code_line)
-    code_line = re.sub(r"\'.*?\'", "<char>", code_line)
-    code_line = re.sub(r"\b\d+[xX]?\d*[abcdexkDFLfl]*\d*\b", '<num>', code_line)
-    code_line = re.sub(r"\\[.*?]", '', code_line)
-    code_line = re.sub(r"[.|,:;{}()]", ' ', code_line)
-
-    for char in CHAR_TO_REMOVE:
-        code_line = code_line.replace(char, ' ')
-
-    code_line = code_line.strip()
-
-    return code_line
 
 
 class CommentDetector:
@@ -80,18 +58,16 @@ class CommentDetector:
 
 
 class LineLevelDatasetHelper:
-    def __init__(self, df):
+    def __init__(self, df, token_extractor: TokenExtractor):
         self.df = df
+        self.token_extractor = token_extractor
 
-    def get_all_lines_tokens(self, to_lowercase=False, max_seq_len=None):
-        file_lines_tokens, _ = self.get_file_lines_tokens_and_labels(
-            to_lowercase=to_lowercase,
-            max_seq_len=max_seq_len
-        )
+    def get_all_lines_tokens(self):
+        file_lines_tokens, _ = self.get_file_lines_tokens_and_labels()
         all_line_tokens = list(more_itertools.collapse(file_lines_tokens[:], levels=1))
         return all_line_tokens
 
-    def get_file_lines_tokens_and_labels(self, to_lowercase=False, max_seq_len=None):
+    def get_file_lines_tokens_and_labels(self):
         file_line_tokens = []
         file_labels = []
 
@@ -100,30 +76,8 @@ class LineLevelDatasetHelper:
 
             lines = list(group_df['code_line'])
 
-            file_code = self.get_line_tokens(lines, to_lowercase, max_seq_len=max_seq_len)
+            file_code = [self.token_extractor.extract_tokens(line) for line in lines]
             file_line_tokens.append(file_code)
             file_labels.append(file_label)
 
         return file_line_tokens, file_labels
-
-    def get_line_tokens(self, lines, to_lowercase=False, max_seq_len=50):
-        line_tokens = []
-
-        for line in lines:
-            line = re.sub('\\s+', ' ', line)
-
-            if to_lowercase:
-                line = line.lower()
-
-            tokens = line.strip().split()
-            if max_seq_len is not None:
-                tokens_count = len(tokens)
-
-                tokens = tokens[:max_seq_len]
-
-                if tokens_count < max_seq_len:
-                    tokens = tokens + ['<pad>'] * (max_seq_len - tokens_count)
-
-            line_tokens.append(tokens)
-
-        return line_tokens

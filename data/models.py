@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 
-from data.utils import CommentDetector, preprocess_code_line, is_empty_line, get_buggy_lines_dataset_path
+from data.utils import CommentDetector, is_empty_line, get_buggy_lines_dataset_path
 
 
 class LineLevelDatasetImporter:
@@ -244,8 +244,8 @@ class SourceCodeFile(LineLevelDatasetImporter):
             is_comments.append(is_comment)
             # preprocess code here then check empty line...
 
-            if not is_comment:
-                line = preprocess_code_line(line)
+            # if not is_comment:
+            #     line = preprocess_code_line(line)
 
             is_blank_line.append(is_empty_line(line))
             preprocess_code_lines.append(line)

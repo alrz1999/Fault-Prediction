@@ -5,6 +5,7 @@ from classification.custom.custom_model import KerasClassifier, KerasCountVector
     KerasTokenizerAndDenseLayer, SimpleKerasClassifierWithExternalEmbedding
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
+from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenExtractor
 
 from embedding.word2vec.word2vec import GensimWord2VecModel, KerasTokenizer
 from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
@@ -21,11 +22,12 @@ def mlp_classifier(project):
     embedding_dimension = 50
     classifier_cls = MLPBaseLineClassifier
     max_seq_len = None
+    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
 
     training_classifier_stage = [
         LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelToFileLevelDatasetMapperStage(),
-        LineLevelTokenizerStage(max_seq_len),
+        LineLevelTokenizerStage(token_extractor),
         EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, perform_export=True),
         EmbeddingAdderStage(),
         ClassifierTrainingStage(classifier_cls, project.get_train_release().release_name, perform_export=False)
@@ -216,17 +218,19 @@ def keras_classifier(project):
 
 
 def keras_cnn_classifier(project):
-    embedding_cls = KerasTokenizer
-    embedding_dim = 50
+    embedding_cls = GensimWord2VecModel
+    embedding_dim = 300
     classifier_cls = KerasCNNClassifier
-    max_seq_len = 200
-    epochs = 5
+    max_seq_len = 300
+    epochs = 4
+    # token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
+    token_extractor = ASTTokenExtractor(cross_project=True)
 
     embedding_training_stages = [
-        LineLevelDatasetImporterStage(project.get_train_release()),
-        # LineLevelDatasetImporterStage(project),
+        # LineLevelDatasetImporterStage(project.get_train_release()),
+        LineLevelDatasetImporterStage(project),
         LineLevelToFileLevelDatasetMapperStage(),
-        LineLevelTokenizerStage(),
+        LineLevelTokenizerStage(token_extractor),
         EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim),
     ]
 
@@ -244,7 +248,6 @@ def keras_cnn_classifier(project):
                 'embedding_model': embedding_model,
                 'max_seq_len': max_seq_len,
                 'epochs': epochs,
-                'num_words': 4000,
             }
         )
     ]
@@ -277,10 +280,11 @@ def simple_keras_classifier_with_external_embedding(project):
     embedding_dim = 50
     classifier_cls = SimpleKerasClassifierWithExternalEmbedding
     max_seq_len = 400
+    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
 
     embedding_training_stages = [
         # LineLevelDatasetImporterStage(project.get_train_release()),
-        # LineLevelTokenizerStage(max_seq_len=max_seq_len),
+        # LineLevelTokenizerStage(token_extractor),
         # EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, perform_export=True),
         EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dim)
     ]
@@ -332,7 +336,7 @@ def generate_line_level_dfs(project):
 
 if __name__ == '__main__':
     project = Project(
-        name="activemq",
+        name="lucene",
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )

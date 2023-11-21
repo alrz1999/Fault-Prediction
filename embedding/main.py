@@ -1,5 +1,6 @@
 from data.models import Project
 from embedding.models import EmbeddingModel
+from embedding.preprocessing.token_extraction import CustomTokenExtractor
 from embedding.word2vec.word2vec import GensimWord2VecModel
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
@@ -14,10 +15,11 @@ def main():
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )
     train_release = project.get_train_release()
+    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=None)
 
     stages = [
         LineLevelDatasetImporterStage(train_release),
-        LineLevelTokenizerStage(),
+        LineLevelTokenizerStage(token_extractor),
         EmbeddingModelTrainingStage(GensimWord2VecModel, project.name, 50, perform_export=False)
     ]
 

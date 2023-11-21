@@ -29,14 +29,25 @@ class KerasCNNClassifier(ClassifierModel):
                 trainable=True
             )
         )
-        model.add(layers.Dropout(0.2))
 
-        # model.add(layers.Flatten())
+        # model.add(layers.Bidirectional(layers.GRU(64, return_sequences=True)))
+        # model.add(layers.Bidirectional(layers.GRU(64)))
+
+        # model.add(layers.Dropout(0.2))
+
         # Modified CNN layers similar to the provided architecture.
-        model.add(layers.Conv1D(16, 5, padding="same", activation="relu"))
-        model.add(layers.Dropout(0.2))
+        # model.add(layers.Conv1D(100, 5, padding="same", activation="relu", strides=1))
         model.add(layers.Conv1D(16, 5, padding="same", activation="relu"))
         # model.add(layers.MaxPooling1D())
+        # model.add(layers.Dropout(0.2))
+        # model.add(layers.Flatten())
+        # model.add(layers.Dropout(0.2))
+
+        # model.add(layers.Dense(8, activation="relu"))
+        # model.add(layers.Flatten())
+        # model.add(layers.Dropout(0.2))
+
+        # model.add(layers.Dense(1024, activation="relu"))
         # model.add(layers.Dropout(0.2))
 
         # Add another Conv1D layer for complexity
@@ -45,11 +56,13 @@ class KerasCNNClassifier(ClassifierModel):
         # model.add(layers.Dropout(0.2))
 
         model.add(layers.GlobalMaxPool1D())
-        model.add(layers.Dropout(0.2))
+        # model.add(layers.Dropout(0.1))
         # Vanilla hidden layer:
-        # model.add(layers.Dense(100, activation="relu"))
-        # model.add(layers.Dropout(0.2))
-
+        # model.add(layers.Conv1D(filters=4, kernel_size=5, padding='same', activation='relu'))
+        # model.add(layers.Dropout(0.5))
+        model.add(layers.Dense(16, activation="relu"))
+        # model.add(layers.Dropout(0.5))
+        # model.add(layers.GRU(2))
         # Project onto a single unit output layer, and squash it with a sigmoid:
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
 
