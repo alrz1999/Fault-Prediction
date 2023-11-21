@@ -7,7 +7,7 @@ from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
 
-from embedding.word2vec.word2vec import GensimWord2VecModel, KerasTokenizer
+from embedding.word2vec.word2vec import GensimWord2VecModel, KerasTokenizer, SklearnCountTokenizer, KerasTextVectorizer
 from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
 from pipeline.datas.file_level import LineLevelToFileLevelDatasetMapperStage, FileLevelDatasetImporterStage
 from pipeline.datas.line_level import LineLevelDatasetImporterStage
@@ -17,328 +17,191 @@ from pipeline.evaluation.evaluation import EvaluationStage
 from pipeline.models import Pipeline, StageData
 
 
-def mlp_classifier(project):
-    embedding_cls = GensimWord2VecModel
-    embedding_dimension = 50
-    classifier_cls = MLPBaseLineClassifier
-    max_seq_len = None
-    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
-
-    embedding_training_stages = [
-        LineLevelDatasetImporterStage(project.get_train_release()),
+def get_data_importer_pipeline_data(dataset_importer, metadata=None):
+    training_data_importer_stages = [
+        LineLevelDatasetImporterStage(dataset_importer),
         LineLevelToFileLevelDatasetMapperStage(),
-        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, token_extractor,
-                                    perform_export=True),
     ]
+    training_data_importer_pipeline_data = Pipeline(training_data_importer_stages).run(metadata)
+    return training_data_importer_pipeline_data
 
-    embedding_pipeline_data = Pipeline(embedding_training_stages).run()
-    embedding_model = embedding_pipeline_data[StageData.Keys.EMBEDDING_MODEL]
 
-    training_classifier_stage = [
-        ClassifierTrainingStage(
-            classifier_cls,
-            project.get_train_release().release_name,
-            perform_export=False,
-            training_metadata={
-                'embedding_model': embedding_model
-            }
-        )
+def get_embedding_pipeline_data(embedding_cls, embedding_dim, project, token_extractor, training_data):
+    embedding_stages = [
+        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, token_extractor,
+                                    perform_export=False),
     ]
-
-    training_pipeline_data = Pipeline(training_classifier_stage).run(embedding_pipeline_data)
-    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
-
-    for eval_release in project.get_eval_releases():
-        prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release),
-            LineLevelToFileLevelDatasetMapperStage(),
-            EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dimension, token_extractor),
-            PredictingClassifierStage(
-                classifier,
-                eval_release.release_name,
-                output_columns=['Bug'],
-                new_columns={'project': project.name, 'train': project.get_train_release().release_name,
-                             'test': eval_release.release_name},
-                perform_export=False,
-                prediction_metadata={
-                    'embedding_model': embedding_model
-                }
-            ),
-            EvaluationStage()
-        ]
-
-        Pipeline(prediction_classifier_stages).run()
+    embedding_pipeline_data = Pipeline(embedding_stages).run(training_data)
+    return embedding_pipeline_data
 
 
-def bow_classifier(project):
-    embedding_cls = None
-    embedding_dimension = 50
-    classifier_cls = BOWBaseLineClassifier
-    max_seq_len = None
-
-    training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release()),
-        LineLevelToFileLevelDatasetMapperStage(),
-        ClassifierTrainingStage(classifier_cls, project.get_train_release().release_name)
-    ]
-
-    training_pipeline_data = Pipeline(training_classifier_stage).run()
-    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
-
-    for eval_release in project.get_eval_releases():
-        prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release),
-            LineLevelToFileLevelDatasetMapperStage(),
-            PredictingClassifierStage(
-                classifier,
-                eval_release.release_name,
-                output_columns=['Bug'],
-                new_columns={'project': project.name, 'train': project.get_train_release().release_name,
-                             'test': eval_release.release_name},
-            ),
-            EvaluationStage()
-        ]
-
-        Pipeline(prediction_classifier_stages).run()
-
-
-def keras_count_vectorizer_and_dense_layer(project):
-    embedding_cls = None
-    embedding_dimension = 50
-    classifier_cls = KerasCountVectorizerAndDenseLayer
-    max_seq_len = None
-
-    training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release()),
-        LineLevelToFileLevelDatasetMapperStage(),
-        ClassifierTrainingStage(
-            classifier_cls,
-            project.get_train_release().release_name,
-            training_metadata={
-                'epochs': 4,
-                'batch_size': 64
-            }
-        )
-    ]
-
-    training_pipeline_data = Pipeline(training_classifier_stage).run()
-    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
-
-    for eval_release in project.get_eval_releases():
-        prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release),
-            LineLevelToFileLevelDatasetMapperStage(),
-            PredictingClassifierStage(
-                classifier,
-                eval_release.release_name,
-                output_columns=['Bug'],
-                new_columns={'project': project.name, 'train': project.get_train_release().release_name,
-                             'test': eval_release.release_name},
-            ),
-            EvaluationStage()
-        ]
-
-        Pipeline(prediction_classifier_stages).run()
-
-
-def keras_tokenizer_and_dense_layer(project):
-    classifier_cls = KerasTokenizerAndDenseLayer
-    max_seq_len = 600
-    batch_size = 64
-    epochs = 8
-    num_words = 6000
-    embedding_dim = 250
-
-    training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release()),
-        LineLevelToFileLevelDatasetMapperStage(),
-        ClassifierTrainingStage(
-            classifier_cls,
-            project.get_train_release().release_name,
-            training_metadata={
-                'max_seq_len': max_seq_len,
-                'batch_size': batch_size,
-                'epochs': epochs,
-                'num_words': num_words,
-                'embedding_dim': embedding_dim
-            }
-        )
-    ]
-
-    training_pipeline_data = Pipeline(training_classifier_stage).run()
-    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
-
-    for eval_release in project.get_eval_releases():
-        prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release),
-            LineLevelToFileLevelDatasetMapperStage(),
-            PredictingClassifierStage(
-                classifier,
-                eval_release.release_name,
-                output_columns=['Bug'],
-                # new_columns={'project': project.name, 'train': project.get_train_release().release_name,
-                #              'test': eval_release.release_name},
-                prediction_metadata={
-                    'max_seq_len': max_seq_len
-                }
-            ),
-            EvaluationStage()
-        ]
-
-        Pipeline(prediction_classifier_stages).run()
-
-
-def keras_classifier(project):
-    embedding_cls = None
-    embedding_dimension = 50
-    classifier_cls = KerasClassifier
-    max_seq_len = 300
-
-    training_classifier_stage = [
-        LineLevelDatasetImporterStage(project.get_train_release()),
-        LineLevelToFileLevelDatasetMapperStage(),
-        ClassifierTrainingStage(
-            classifier_cls,
-            project.get_train_release().release_name,
-            training_metadata={
-                'vocab_size': 5000,
-                'embedding_dim': embedding_dimension,
-                'sequence_length': max_seq_len,
-                'batch_size': 32
-            }
-        )
-    ]
-
-    training_pipeline_data = Pipeline(training_classifier_stage).run()
-    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
-
-    for eval_release in project.get_eval_releases():
-        prediction_classifier_stages = [
-            LineLevelDatasetImporterStage(eval_release),
-            LineLevelToFileLevelDatasetMapperStage(),
-            PredictingClassifierStage(
-                classifier,
-                eval_release.release_name,
-                output_columns=['Bug'],
-                prediction_metadata={
-                    'batch_size': 32
-                },
-                perform_export=False
-            ),
-            EvaluationStage()
-        ]
-
-        Pipeline(prediction_classifier_stages).run()
-
-
-def keras_cnn_classifier(project):
-    embedding_cls = GensimWord2VecModel
-    embedding_dim = 50
-    classifier_cls = KerasCNNClassifier
-    max_seq_len = 200
-    epochs = 4
-    # token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
-    # token_extractor = ASTTokenizer(cross_project=False)
-    token_extractor = ASTExtractor()
-
-    embedding_training_stages = [
-        FileLevelDatasetImporterStage(project.get_train_release()),
-        # LineLevelDatasetImporterStage(project),
-        # LineLevelToFileLevelDatasetMapperStage(),
-        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, token_extractor),
-    ]
-
-    embedding_pipeline_data = Pipeline(embedding_training_stages).run()
-    embedding_model = embedding_pipeline_data[StageData.Keys.EMBEDDING_MODEL]
-
-    classifier_training_stages = [
+def get_classifier_pipeline_data(classifier_cls, project, training_data):
+    classifier_stages = [
         IndexToVecMatrixAdderStage(),
         ClassifierTrainingStage(
             classifier_cls,
             project.get_train_release().release_name,
-            training_metadata={
-                'embedding_dim': embedding_dim,
-                'batch_size': 32,
-                'embedding_model': embedding_model,
-                'max_seq_len': max_seq_len,
-                'epochs': epochs,
-            }
+            perform_export=False
         )
     ]
-
-    training_pipeline_data = Pipeline(classifier_training_stages).run(embedding_pipeline_data)
-    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
-
-    for eval_release in project.get_eval_releases():
-        classifier_prediction_stages = [
-            FileLevelDatasetImporterStage(eval_release),
-            # LineLevelToFileLevelDatasetMapperStage(),
-            PredictingClassifierStage(
-                classifier,
-                eval_release.release_name,
-                output_columns=['Bug'],
-                prediction_metadata={
-                    'max_seq_len': max_seq_len,
-                    'embedding_model': embedding_model,
-                },
-                perform_export=False
-            ),
-            EvaluationStage()
-        ]
-
-        Pipeline(classifier_prediction_stages).run()
+    training_pipeline_data = Pipeline(classifier_stages).run(training_data)
+    return training_pipeline_data
 
 
-def simple_keras_classifier_with_external_embedding(project):
-    embedding_cls = GensimWord2VecModel
-    embedding_dim = 50
-    classifier_cls = SimpleKerasClassifierWithExternalEmbedding
-    max_seq_len = 400
-    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
-
-    embedding_training_stages = [
-        # LineLevelDatasetImporterStage(project.get_train_release()),
-        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, token_extractor, perform_export=True),
-        EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dim, token_extractor)
-    ]
-
-    embedding_pipeline_data = Pipeline(embedding_training_stages).run()
-    embedding_model = embedding_pipeline_data[StageData.Keys.EMBEDDING_MODEL]
-
-    classifier_training_stages = [
-        LineLevelDatasetImporterStage(project.get_train_release()),
-        LineLevelToFileLevelDatasetMapperStage(),
-        ClassifierTrainingStage(
-            classifier_cls,
-            project.get_train_release().release_name,
-            training_metadata={
-                'embedding_dim': embedding_dim,
-                'batch_size': 32,
-                'embedding_model': embedding_model,
-                'max_seq_len': max_seq_len
-            })
-    ]
-
-    training_pipeline_data = Pipeline(classifier_training_stages).run(embedding_pipeline_data)
-    classifier = training_pipeline_data[StageData.Keys.CLASSIFIER_MODEL]
-
+def evaluate_classifier(project, pipeline_data):
     for eval_release in project.get_eval_releases():
         classifier_prediction_stages = [
             LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
             PredictingClassifierStage(
-                classifier,
                 eval_release.release_name,
                 output_columns=['Bug'],
-                prediction_metadata={
-                    'batch_size': 32,
-                    'max_seq_len': max_seq_len
-                },
+                new_columns={'project': project.name, 'train': project.get_train_release().release_name,
+                             'test': eval_release.release_name},
+                perform_export=False
             ),
             EvaluationStage()
         ]
 
-        Pipeline(classifier_prediction_stages).run()
+        Pipeline(classifier_prediction_stages).run(pipeline_data)
+
+
+def classify(project, classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs):
+    metadata = StageData({
+        'dataset_name': project.get_train_release().release_name,
+        'embedding_dim': embedding_dim,
+        'max_seq_len': max_seq_len,
+        'batch_size': batch_size,
+        'epochs': epochs,
+        'token_extractor': token_extractor
+    })
+
+    pipeline_data = get_data_importer_pipeline_data(
+        dataset_importer=project.get_train_release(),
+        metadata=metadata
+    )
+
+    if embedding_cls is not None:
+        pipeline_data = get_embedding_pipeline_data(
+            embedding_cls=embedding_cls,
+            embedding_dim=embedding_dim,
+            project=project,
+            token_extractor=token_extractor,
+            training_data=pipeline_data
+        )
+
+    pipeline_data = get_classifier_pipeline_data(
+        classifier_cls=classifier_cls,
+        project=project,
+        training_data=pipeline_data,
+    )
+
+    evaluate_classifier(project, pipeline_data)
+
+
+def mlp_classifier(project):
+    max_seq_len = None
+    classify(
+        project=project,
+        classifier_cls=MLPBaseLineClassifier,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=64,
+        epochs=8,
+    )
+
+
+def bow_classifier(project):
+    classify(
+        project=project,
+        classifier_cls=BOWBaseLineClassifier,
+        embedding_cls=None,
+        token_extractor=None,
+        embedding_dim=50,
+        max_seq_len=None,
+        batch_size=64,
+        epochs=8,
+    )
+
+
+def keras_count_vectorizer_and_dense_layer(project):
+    max_seq_len = 50
+
+    classify(
+        project=project,
+        classifier_cls=KerasCountVectorizerAndDenseLayer,
+        embedding_cls=SklearnCountTokenizer,
+        token_extractor=CustomTokenExtractor(True, max_seq_len),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=64,
+        epochs=8,
+    )
+
+
+def keras_tokenizer_and_dense_layer(project):
+    max_seq_len = 600
+
+    classify(
+        project=project,
+        classifier_cls=KerasTokenizerAndDenseLayer,
+        embedding_cls=KerasTokenizer,
+        token_extractor=CustomTokenExtractor(True, max_seq_len),
+        embedding_dim=250,
+        max_seq_len=max_seq_len,
+        batch_size=64,
+        epochs=8
+    )
+
+
+def keras_classifier(project):
+    max_seq_len = 300
+
+    classify(
+        project=project,
+        classifier_cls=KerasClassifier,
+        embedding_cls=KerasTextVectorizer,
+        token_extractor=CustomTokenExtractor(True, max_seq_len),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=64,
+        epochs=8
+    )
+
+
+def keras_cnn_classifier(project):
+    max_seq_len = 200
+    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
+    # token_extractor = ASTTokenizer(cross_project=False)
+    # token_extractor = ASTExtractor()
+
+    classify(
+        project=project,
+        classifier_cls=KerasCNNClassifier,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=token_extractor,
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=64,
+        epochs=4
+    )
+
+
+def simple_keras_classifier_with_external_embedding(project):
+    max_seq_len = 400
+
+    classify(
+        project=project,
+        classifier_cls=SimpleKerasClassifierWithExternalEmbedding,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=4
+    )
 
 
 def generate_line_level_dfs(project):
@@ -355,10 +218,10 @@ if __name__ == '__main__':
     )
     # generate_line_level_dfs(project)
 
-    mlp_classifier(project)
+    # mlp_classifier(project)
     # bow_classifier(project)
     # keras_count_vectorizer_and_dense_layer(project)
     # keras_tokenizer_and_dense_layer(project)
     # keras_classifier(project)
     # keras_cnn_classifier(project)
-    # simple_keras_classifier_with_external_embedding(project)
+    simple_keras_classifier_with_external_embedding(project)

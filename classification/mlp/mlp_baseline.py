@@ -18,8 +18,8 @@ class MLPBaseLineClassifier(ClassifierModel):
         self.dataset_name = dataset_name
 
     @classmethod
-    def train(cls, df, dataset_name, training_metadata=None):
-        embedding_model = training_metadata.get('embedding_model')
+    def train(cls, df, dataset_name, metadata=None):
+        embedding_model = metadata.get('embedding_model')
 
         codes, labels = df['SRC'], df['Bug']
 
@@ -60,8 +60,8 @@ class MLPBaseLineClassifier(ClassifierModel):
         pickle.dump(self.model, open(self.get_model_save_path(self.dataset_name), 'wb'))
         pickle.dump(self.scaler, open(self.get_scalar_save_path(self.dataset_name), 'wb'))
 
-    def predict(self, df, prediction_metadata=None):
-        embedding_model = prediction_metadata.get('embedding_model')
+    def predict(self, df, metadata=None):
+        embedding_model = metadata.get('embedding_model')
         codes = df['SRC']
 
         embeddings = embedding_model.text_to_vec(codes)

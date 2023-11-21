@@ -37,7 +37,7 @@ class ClassifierModel:
         plt.show()
 
     @classmethod
-    def train(cls, df, dataset_name, training_metadata=None):
+    def train(cls, df, dataset_name, metadata=None):
         raise NotImplementedError()
 
     @classmethod
@@ -51,7 +51,7 @@ class ClassifierModel:
     def export_model(self):
         raise NotImplementedError()
 
-    def predict(self, df, prediction_metadata=None):
+    def predict(self, df, metadata=None):
         raise NotImplementedError()
 
     @classmethod

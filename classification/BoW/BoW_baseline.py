@@ -19,7 +19,7 @@ class BOWBaseLineClassifier(ClassifierModel):
         self.dataset_name = dataset_name
 
     @classmethod
-    def train(cls, df, dataset_name, training_metadata=None):
+    def train(cls, df, dataset_name, metadata=None):
         codes, labels = df['SRC'], df['Bug']
         vectorizer = CountVectorizer()
         vectorizer.fit(codes)
@@ -60,7 +60,7 @@ class BOWBaseLineClassifier(ClassifierModel):
 
         return os.path.join(BOW_SAVE_MODEL_DIR, re.sub('-.*', '', dataset_name) + "-BoW-model.bin")
 
-    def predict(self, df, prediction_metadata=None):
+    def predict(self, df, metadata=None):
         test_code, labels = df['SRC'], df['Bug']
 
         X = self.vectorizer.transform(test_code).toarray()

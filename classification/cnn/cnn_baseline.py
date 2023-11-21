@@ -24,7 +24,8 @@ class KerasCNNClassifier(ClassifierModel):
         model.add(
             layers.Embedding(
                 vocab_size, embedding_dim,
-                weights=[embedding_matrix] if embedding_matrix is not None else None,
+                # weights=[embedding_matrix] if embedding_matrix is not None else None,
+                weights=[embedding_matrix],
                 input_length=max_seq_len,
                 trainable=True
             )
@@ -72,18 +73,18 @@ class KerasCNNClassifier(ClassifierModel):
         return model
 
     @classmethod
-    def train(cls, df, dataset_name, training_metadata=None):
-        batch_size = training_metadata.get('batch_size')
-        embedding_model: EmbeddingModel = training_metadata.get('embedding_model')
-        max_seq_len = training_metadata.get('max_seq_len')
-        epochs = training_metadata.get('epochs')
-        embedding_matrix = training_metadata.get('embedding_matrix')
+    def train(cls, df, dataset_name, metadata=None):
+        batch_size = metadata.get('batch_size')
+        embedding_model: EmbeddingModel = metadata.get('embedding_model')
+        max_seq_len = metadata.get('max_seq_len')
+        epochs = metadata.get('epochs')
+        embedding_matrix = metadata.get('embedding_matrix')
 
         codes, labels = df['SRC'], df['Bug']
 
         X = embedding_model.text_to_indexes(codes)
         vocab_size = embedding_model.get_vocab_size()
-        embedding_dim = embedding_model.get_embedding_dimension()
+        embedding_dim = embedding_model.get_embedding_dim()
 
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
         Y = np.array([1 if label == True else 0 for label in labels])
@@ -108,8 +109,8 @@ class KerasCNNClassifier(ClassifierModel):
 
         return cls(model, embedding_model)
 
-    def predict(self, df, prediction_metadata=None):
-        max_seq_len = prediction_metadata.get('max_seq_len')
+    def predict(self, df, metadata=None):
+        max_seq_len = metadata.get('max_seq_len')
 
         codes, labels = df['SRC'], df['Bug']
 

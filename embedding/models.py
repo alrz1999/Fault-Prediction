@@ -8,15 +8,15 @@ class EmbeddingModel:
             os.makedirs(WORD2VEC_DIR)
 
     @classmethod
-    def import_model(cls, dataset_name, **kwargs):
+    def import_model(cls, dataset_name, metadata):
         raise NotImplementedError()
 
     @classmethod
-    def train(cls, texts, **kwargs):
+    def train(cls, texts, metadata):
         raise NotImplementedError()
 
     @classmethod
-    def get_model_save_path(cls, dataset_name, **kwargs):
+    def get_model_save_path(cls, dataset_name, metadata):
         raise NotImplementedError()
 
     def text_to_vec(self, data):
@@ -34,5 +34,5 @@ class EmbeddingModel:
     def get_vocab_size(self):
         raise NotImplementedError()
 
-    def get_embedding_dimension(self):
+    def get_embedding_dim(self):
         raise NotImplementedError()

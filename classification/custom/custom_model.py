@@ -6,8 +6,6 @@ from imblearn.over_sampling import SMOTE
 from keras import layers, Sequential
 from keras.layers import TextVectorization
 from keras.src.utils import pad_sequences
-from sklearn.feature_extraction.text import CountVectorizer
-from keras.preprocessing.text import Tokenizer
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 
@@ -42,9 +40,9 @@ class CustomModel:
 
 
 class KerasClassifier(ClassifierModel):
-    def __init__(self, model, vectorize_layer):
+    def __init__(self, model, embedding_model):
         self.model = model
-        self.vectorize_layer = vectorize_layer
+        self.embedding_model = embedding_model
 
     @classmethod
     def build_model(cls, vocab_size, embedding_dim):
@@ -76,59 +74,38 @@ class KerasClassifier(ClassifierModel):
         return model
 
     @classmethod
-    def vectorize_text(cls, vectorize_layer, text, label):
-        text = tf.expand_dims(text, -1)
-        return vectorize_layer(text), label
+    def train(cls, df, dataset_name, metadata=None):
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
 
-    @classmethod
-    def train(cls, df, dataset_name, training_metadata=None):
-        vocab_size = training_metadata.get('vocab_size', 20000)
-        embedding_dim = training_metadata.get('embedding_dim', 128)
-        sequence_length = training_metadata.get('sequence_length', 500)
-        batch_size = training_metadata.get('batch_size', 32)
+        codes, labels = df['SRC'], df['Bug']
+
+        X = embedding_model.text_to_indexes(codes)
+        vocab_size = embedding_model.get_vocab_size()
+        embedding_dim = embedding_model.get_embedding_dim()
+
+        Y = np.array([1 if label == True else 0 for label in labels])
 
         model = cls.build_model(vocab_size, embedding_dim)
-        vectorize_layer = TextVectorization(
-            max_tokens=vocab_size,
-            output_mode="int",
-            output_sequence_length=sequence_length,
+        history = model.fit(
+            X, Y,
+            epochs=epochs,
+            batch_size=batch_size,
+            validation_split=0.2
         )
-        train_data, val_data = train_test_split(df, test_size=0.2, random_state=42)
-
-        train_dataset = create_tensorflow_dataset(train_data, batch_size=batch_size, shuffle=True)
-        val_dataset = create_tensorflow_dataset(val_data, batch_size=batch_size)
-
-        text_ds = train_dataset.map(lambda x, y: x)
-        vectorize_layer.adapt(text_ds)
-
-        train_ds = train_dataset.map(lambda x, y: cls.vectorize_text(vectorize_layer, x, y))
-        val_ds = val_dataset.map(lambda x, y: cls.vectorize_text(vectorize_layer, x, y))
-
-        epochs = 3
-
-        # Fit the model using the train and test datasets.
-        history = model.fit(train_ds, validation_data=val_ds, epochs=epochs)
         cls.plot_history(history)
 
-        return cls(model, vectorize_layer)
+        return cls(model, embedding_model)
 
-    def predict(self, df, prediction_metadata=None):
-        batch_size = prediction_metadata.get('batch_size', 32)
+    def predict(self, df, metadata=None):
+        codes, labels = df['SRC'], df['Bug']
 
-        test_ds = create_tensorflow_dataset(df, batch_size=batch_size)
+        X_test = self.embedding_model.text_to_indexes(codes)
 
-        test_ds = test_ds.map(lambda x, y: self.vectorize_text(self.vectorize_layer, x, y))
-        test_ds = test_ds.cache().prefetch(buffer_size=10)
-        Y_pred = list(map(bool, list(self.model.predict(test_ds))))
+        Y_pred = list(map(bool, list(self.model.predict(X_test))))
+
         return Y_pred
-
-    def evaluate(self, test_df, batch_size=32):
-        test_ds = create_tensorflow_dataset(test_df, batch_size=batch_size)
-        print(f"Number of batches in raw_test_ds: {test_ds.cardinality()}")
-
-        test_ds = test_ds.map(lambda x, y: self.vectorize_text(self.vectorize_layer, x, y))
-
-        self.model.evaluate(test_ds)
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
@@ -136,9 +113,9 @@ class KerasClassifier(ClassifierModel):
 
 
 class KerasCountVectorizerAndDenseLayer(ClassifierModel):
-    def __init__(self, model, vectorizer):
+    def __init__(self, model, embedding_model):
         self.model = model
-        self.vectorizer = vectorizer
+        self.embedding_model = embedding_model
 
     @classmethod
     def build_model(cls, input_dim):
@@ -152,16 +129,17 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
         return model
 
     @classmethod
-    def train(cls, df, dataset_name, training_metadata=None):
-        epochs = training_metadata.get('epochs', 4)
-        batch_size = training_metadata.get('batch_size', 32)
+    def train(cls, df, dataset_name, metadata=None):
+        epochs = metadata.get('epochs', 4)
+        batch_size = metadata.get('batch_size', 32)
+        embedding_model = metadata.get('embedding_model')
 
         codes, labels = df['SRC'], df['Bug']
 
-        vectorizer = CountVectorizer(max_df=0.7, min_df=0.002)
-        vectorizer.fit(codes)
-        print(len(vectorizer.vocabulary_))
-        X = vectorizer.transform(codes).toarray()
+        X = embedding_model.text_to_indexes(codes).toarray()
+        vocab_size = embedding_model.get_vocab_size()
+        embedding_dim = embedding_model.get_embedding_dim()
+
         Y = np.array([1 if label == True else 0 for label in labels])
 
         sm = SMOTE(random_state=42)
@@ -171,19 +149,20 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
         history = model.fit(
             X, Y,
             epochs=epochs,
-            batch_size=batch_size
+            batch_size=batch_size,
+            validation_split=0.2
         )
         cls.plot_history(history)
 
         loss, accuracy = model.evaluate(X, Y, verbose=False)
         print("Training Accuracy: {:.4f}".format(accuracy))
 
-        return cls(model, vectorizer)
+        return cls(model, embedding_model)
 
-    def predict(self, df, prediction_metadata=None):
+    def predict(self, df, metadata=None):
         codes, labels = df['SRC'], df['Bug']
 
-        X = self.vectorizer.transform(codes).toarray()
+        X = self.embedding_model.text_to_indexes(codes).toarray()
 
         Y_pred = list(map(bool, list(self.model.predict(X))))
         return Y_pred
@@ -225,18 +204,17 @@ class KerasTokenizerAndDenseLayer(KerasCountVectorizerAndDenseLayer):
         return model
 
     @classmethod
-    def train(cls, df, dataset_name, training_metadata=None):
+    def train(cls, df, dataset_name, metadata=None):
         codes, labels = df['SRC'], df['Bug']
-        max_seq_len = training_metadata.get('max_seq_len')
-        batch_size = training_metadata.get('batch_size')
-        epochs = training_metadata.get('epochs')
-        num_words = training_metadata.get('num_words')
-        embedding_dim = training_metadata.get('embedding_dim', 50)
+        max_seq_len = metadata.get('max_seq_len')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        embedding_model = metadata.get('embedding_model')
 
-        tokenizer = Tokenizer(num_words=num_words)
-        tokenizer.fit_on_texts(codes)
+        X = embedding_model.text_to_indexes(codes)
+        vocab_size = embedding_model.get_vocab_size()
+        embedding_dim = embedding_model.get_embedding_dim()
 
-        X = tokenizer.texts_to_sequences(codes)
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
 
         Y = np.array([1 if label == True else 0 for label in labels])
@@ -253,20 +231,21 @@ class KerasTokenizerAndDenseLayer(KerasCountVectorizerAndDenseLayer):
         history = model.fit(
             X, Y,
             epochs=epochs,
-            batch_size=batch_size
+            batch_size=batch_size,
+            validation_split=0.2
         )
         cls.plot_history(history)
 
         loss, accuracy = model.evaluate(X, Y, verbose=False)
         print("Training Accuracy: {:.4f}".format(accuracy))
 
-        return cls(model, tokenizer)
+        return cls(model, embedding_model)
 
-    def predict(self, df, prediction_metadata=None):
+    def predict(self, df, metadata=None):
         test_code, labels = df['SRC'], df['Bug']
-        max_seq_len = prediction_metadata.get('max_seq_len')
+        max_seq_len = metadata.get('max_seq_len')
 
-        X = self.vectorizer.texts_to_sequences(test_code)
+        X = self.embedding_model.text_to_indexes(test_code)
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
 
         Y_pred = list(map(bool, list(self.model.predict(X))))
@@ -274,9 +253,9 @@ class KerasTokenizerAndDenseLayer(KerasCountVectorizerAndDenseLayer):
 
 
 class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
-    def __init__(self, model, tokenizer):
+    def __init__(self, model, embedding_model):
         self.model = model
-        self.tokenizer = tokenizer
+        self.embedding_model = embedding_model
 
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
@@ -311,19 +290,18 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
         return model
 
     @classmethod
-    def train(cls, df, dataset_name, training_metadata=None):
-        embedding_dim = training_metadata.get('embedding_dim')
-        batch_size = training_metadata.get('batch_size')
-        embedding_model = training_metadata.get('embedding_model')
-        max_seq_len = training_metadata.get('max_seq_len')
+    def train(cls, df, dataset_name, metadata=None):
+        batch_size = metadata.get('batch_size')
+        embedding_model = metadata.get('embedding_model')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
 
         codes, labels = df['SRC'], df['Bug']
 
-        tokenizer = Tokenizer(num_words=10000)
-        tokenizer.fit_on_texts(codes)
+        X = embedding_model.text_to_indexes(codes)
+        vocab_size = embedding_model.get_vocab_size()
+        embedding_dim = embedding_model.get_embedding_dim()
 
-        embedding_matrix = embedding_model.get_index_to_vec_matrix(tokenizer.word_index, embedding_dim)
-        X = tokenizer.texts_to_sequences(codes)
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
 
         Y = np.array([1 if label == True else 0 for label in labels])
@@ -332,7 +310,7 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
         X, Y = sm.fit_resample(X, Y)
 
         model = cls.build_model(
-            vocab_size=len(tokenizer.word_index) + 1,
+            vocab_size=vocab_size,
             embedding_dim=embedding_dim,
             embedding_matrix=embedding_matrix,
             max_seq_len=max_seq_len
@@ -345,14 +323,14 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
             validation_split=0.2
         )
         cls.plot_history(history)
-        return cls(model, tokenizer)
+        return cls(model, embedding_model)
 
-    def predict(self, df, prediction_metadata=None):
-        max_seq_len = prediction_metadata.get('max_seq_len')
+    def predict(self, df, metadata=None):
+        max_seq_len = metadata.get('max_seq_len')
 
         codes, labels = df['SRC'], df['Bug']
 
-        X_test = self.tokenizer.texts_to_sequences(codes)
+        X_test = self.embedding_model.text_to_indexes(codes)
         X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
 
         Y_pred = list(map(bool, list(self.model.predict(X_test))))
