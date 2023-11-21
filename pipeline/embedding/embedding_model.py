@@ -58,16 +58,6 @@ class EmbeddingModelImporterStage(PipelineStage):
         self.stage_data[StageData.Keys.EMBEDDING_MODEL] = self.result
 
 
-class EmbeddingAdderStage(PipelineStage):
-    def process(self):
-        embedding_model = self.stage_data[StageData.Keys.EMBEDDING_MODEL]
-        df = self.stage_data[StageData.Keys.FILE_LEVEL_DF]
-        embeddings = embedding_model.text_to_vec(df['SRC'])
-        print("embedding_shape:", np.array(embeddings).shape)
-        self.result = embeddings
-        self.stage_data[StageData.Keys.EMBEDDING] = self.result
-
-
 class IndexToVecMatrixAdderStage(PipelineStage):
     def __init__(self, word_to_index_dict=None):
         super().__init__()
