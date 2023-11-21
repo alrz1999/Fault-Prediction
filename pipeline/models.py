@@ -54,6 +54,13 @@ class StageData(dict):
         if value is not None:
             self[key] = value
 
+    def __str__(self):
+        keys = []
+        for key, val in self.items():
+            if val is not None:
+                keys.append(key)
+        return str.join(", ", [str(key) for key in keys])
+
 
 class PipelineStage:
     def __init__(self, stage_data=None, perform_export=False):
@@ -64,17 +71,17 @@ class PipelineStage:
 
     def _export_result(self):
         if self.perform_export:
-            logger.info(f" {self.name} export_result started ".center(40, "*"))
+            logger.info(f" {self.name} export_result started ")
             self.export_result()
-            logger.info(f" {self.name} export_result finished ".center(40, "*"))
+            logger.info(f" {self.name} export_result finished. StageData[{self.stage_data}]")
 
     def export_result(self):
         raise NotImplementedError()
 
     def _process(self):
-        logger.info(f" {self.name} process started ".center(40, "*"))
+        logger.info(f" {self.name} process started ")
         self.process()
-        logger.info(f" {self.name} process finished ".center(40, "*"))
+        logger.info(f" {self.name} process finished. StageData[{self.stage_data}]")
 
     def process(self):
         raise NotImplementedError()
