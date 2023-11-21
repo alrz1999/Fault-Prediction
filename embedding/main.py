@@ -3,7 +3,7 @@ from embedding.models import EmbeddingModel
 from embedding.preprocessing.token_extraction import CustomTokenExtractor
 from embedding.word2vec.word2vec import GensimWord2VecModel
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
-from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
+from pipeline.datas.line_level import LineLevelDatasetImporterStage
 from pipeline.embedding.embedding_model import EmbeddingModelTrainingStage
 from pipeline.models import Pipeline, StageData
 
@@ -16,11 +16,11 @@ def main():
     )
     train_release = project.get_train_release()
     token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=None)
-
+    embedding_dimension = 50
     stages = [
         LineLevelDatasetImporterStage(train_release),
-        LineLevelTokenizerStage(token_extractor),
-        EmbeddingModelTrainingStage(GensimWord2VecModel, project.name, 50, perform_export=False)
+        EmbeddingModelTrainingStage(GensimWord2VecModel, project.name, embedding_dimension, token_extractor,
+                                    perform_export=False, is_file_level=False)
     ]
 
     pipeline_data = Pipeline(stages).run()

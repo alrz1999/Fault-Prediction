@@ -12,7 +12,7 @@ class EmbeddingModel:
         raise NotImplementedError()
 
     @classmethod
-    def train(cls, data, **kwargs):
+    def train(cls, texts, **kwargs):
         raise NotImplementedError()
 
     @classmethod

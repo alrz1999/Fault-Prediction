@@ -10,7 +10,7 @@ from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTo
 from embedding.word2vec.word2vec import GensimWord2VecModel, KerasTokenizer
 from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
 from pipeline.datas.file_level import LineLevelToFileLevelDatasetMapperStage
-from pipeline.datas.line_level import LineLevelDatasetImporterStage, LineLevelTokenizerStage
+from pipeline.datas.line_level import LineLevelDatasetImporterStage
 from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage, \
     EmbeddingAdderStage, IndexToVecMatrixAdderStage
 from pipeline.evaluation.evaluation import EvaluationStage
@@ -27,8 +27,8 @@ def mlp_classifier(project):
     training_classifier_stage = [
         LineLevelDatasetImporterStage(project.get_train_release()),
         LineLevelToFileLevelDatasetMapperStage(),
-        LineLevelTokenizerStage(token_extractor),
-        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, perform_export=True),
+        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dimension, token_extractor,
+                                    perform_export=True),
         EmbeddingAdderStage(),
         ClassifierTrainingStage(classifier_cls, project.get_train_release().release_name, perform_export=False)
     ]
@@ -40,7 +40,7 @@ def mlp_classifier(project):
         prediction_classifier_stages = [
             LineLevelDatasetImporterStage(eval_release),
             LineLevelToFileLevelDatasetMapperStage(),
-            EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dimension),
+            EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dimension, token_extractor),
             EmbeddingAdderStage(),
             PredictingClassifierStage(
                 classifier,
@@ -223,15 +223,14 @@ def keras_cnn_classifier(project):
     classifier_cls = KerasCNNClassifier
     max_seq_len = 300
     epochs = 4
-    # token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
-    token_extractor = ASTTokenExtractor(cross_project=True)
+    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
+    # token_extractor = ASTTokenExtractor(cross_project=False)
 
     embedding_training_stages = [
-        # LineLevelDatasetImporterStage(project.get_train_release()),
-        LineLevelDatasetImporterStage(project),
+        LineLevelDatasetImporterStage(project.get_train_release()),
+        # LineLevelDatasetImporterStage(project),
         LineLevelToFileLevelDatasetMapperStage(),
-        LineLevelTokenizerStage(token_extractor),
-        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim),
+        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, token_extractor),
     ]
 
     embedding_pipeline_data = Pipeline(embedding_training_stages).run()
@@ -272,7 +271,7 @@ def keras_cnn_classifier(project):
             EvaluationStage()
         ]
 
-        output = Pipeline(classifier_prediction_stages).run()
+        Pipeline(classifier_prediction_stages).run()
 
 
 def simple_keras_classifier_with_external_embedding(project):
@@ -284,9 +283,8 @@ def simple_keras_classifier_with_external_embedding(project):
 
     embedding_training_stages = [
         # LineLevelDatasetImporterStage(project.get_train_release()),
-        # LineLevelTokenizerStage(token_extractor),
-        # EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, perform_export=True),
-        EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dim)
+        EmbeddingModelTrainingStage(embedding_cls, project.name, embedding_dim, token_extractor, perform_export=True),
+        EmbeddingModelImporterStage(embedding_cls, project.name, embedding_dim, token_extractor)
     ]
 
     embedding_pipeline_data = Pipeline(embedding_training_stages).run()
@@ -336,7 +334,7 @@ def generate_line_level_dfs(project):
 
 if __name__ == '__main__':
     project = Project(
-        name="lucene",
+        name="activemq",
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
     )

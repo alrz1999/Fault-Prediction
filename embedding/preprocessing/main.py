@@ -1,6 +1,6 @@
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from data.models import *
-from pipeline.datas.file_level import FileLevelDatasetImporterStage, FileLevelTokenizerStage
+from pipeline.datas.file_level import FileLevelDatasetImporterStage
 from pipeline.models import Pipeline, StageData
 from token_extraction import *
 
@@ -15,12 +15,11 @@ def main():
 
     stages = [
         FileLevelDatasetImporterStage(project.get_train_release().get_file_level_dataset_path()),
-        FileLevelTokenizerStage(tokenizer)
     ]
 
-    pipeline_data = Pipeline(stages).run()
-    files_tokens = pipeline_data[StageData.Keys.FILE_LEVEL_TOKENS]
-    print(files_tokens[0])
+    pipeline_data = Pipeline(stages).run()[StageData.Keys.FILE_LEVEL_DF]
+    files_tokens = tokenizer.extract_tokens(pipeline_data['SRC'].tolist()[0])
+    print(files_tokens)
 
 
 if __name__ == '__main__':

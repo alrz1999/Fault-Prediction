@@ -7,13 +7,15 @@ from keras.src.preprocessing.text import Tokenizer
 
 from config import WORD2VEC_DIR
 from embedding.models import EmbeddingModel
+from embedding.preprocessing.token_extraction import TokenExtractor
 
 
 class GensimWord2VecModel(EmbeddingModel):
-    def __init__(self, model, dataset_name, embedding_dimension):
+    def __init__(self, model, dataset_name, embedding_dimension, token_extractor):
         self.model = model
         self.dataset_name = dataset_name
         self.embedding_dimension = embedding_dimension
+        self.token_extractor: TokenExtractor = token_extractor
 
     def export_model(self):
         save_path = self.get_model_save_path(self.dataset_name, embedding_dimension=self.embedding_dimension)
@@ -27,16 +29,19 @@ class GensimWord2VecModel(EmbeddingModel):
     def import_model(cls, dataset_name, **kwargs):
         save_path = cls.get_model_save_path(dataset_name, **kwargs)
         embedding_dimension = kwargs.get('embedding_dimension', 50)
+        token_extractor = kwargs.get('token_extractor')
         model = gensim.models.Word2Vec.load(save_path)
-        return cls(model, dataset_name, embedding_dimension)
+        return cls(model, dataset_name, embedding_dimension, token_extractor)
 
     @classmethod
-    def train(cls, data, **kwargs):
+    def train(cls, texts, **kwargs):
         embedding_dimension = kwargs.get('embedding_dimension', 50)
         dataset_name = kwargs.get('dataset_name')
-        line_tokens = data
-        model = Word2Vec(line_tokens, vector_size=embedding_dimension, min_count=1, sorted_vocab=1)
-        return GensimWord2VecModel(model, dataset_name, embedding_dimension)
+        token_extractor: TokenExtractor = kwargs.get('token_extractor')
+
+        tokens = [token_extractor.extract_tokens(text) for text in texts]
+        model = Word2Vec(tokens, vector_size=embedding_dimension, min_count=1, sorted_vocab=1)
+        return GensimWord2VecModel(model, dataset_name, embedding_dimension, token_extractor)
 
     @classmethod
     def get_model_save_path(cls, dataset_name, **kwargs):
@@ -49,7 +54,7 @@ class GensimWord2VecModel(EmbeddingModel):
             vec = [
                 self.model.wv[word] if word in self.model.wv else np.zeros(self.model.vector_size) for word
                 in
-                text.split()]
+                self.token_extractor.extract_tokens(text)]
             vec = np.mean(vec, axis=0)
             vecs.append(vec)
         return vecs
@@ -60,7 +65,7 @@ class GensimWord2VecModel(EmbeddingModel):
             text_indexes = [
                 self.model.wv.key_to_index[word] for word
                 in
-                text.split() if word in self.model.wv.key_to_index]
+                self.token_extractor.extract_tokens(text) if word in self.model.wv.key_to_index]
             texts_indexes.append(text_indexes)
         return texts_indexes
 
@@ -90,10 +95,10 @@ class KerasTokenizer(EmbeddingModel):
         self.tokenizer = tokenizer
 
     @classmethod
-    def train(cls, data, **kwargs):
+    def train(cls, texts, **kwargs):
         embedding_dimension = kwargs.get('embedding_dimension', 50)
         tokenizer = Tokenizer()
-        tokenizer.fit_on_texts(data)
+        tokenizer.fit_on_texts(texts)
         return cls(tokenizer, embedding_dimension)
 
     def text_to_indexes(self, texts):

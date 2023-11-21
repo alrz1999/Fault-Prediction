@@ -1,4 +1,3 @@
-from embedding.preprocessing.token_extraction import TokenExtractor
 from classification.utils import LineLevelToFileLevelDatasetMapper
 from pipeline.models import PipelineStage, StageData
 import pandas as pd
@@ -16,23 +15,6 @@ class FileLevelDatasetImporterStage(PipelineStage):
     def process(self):
         self.result = self.import_df()
         self.stage_data[StageData.Keys.FILE_LEVEL_DF] = self.result
-
-
-class FileLevelTokenizerStage(PipelineStage):
-    def __init__(self, token_extractor: TokenExtractor):
-        super().__init__()
-        self.token_extractor = token_extractor
-
-    def process(self):
-        df = self.stage_data[StageData.Keys.FILE_LEVEL_DF]
-        files_tokens = []
-        files_source_codes = df["SRC"]
-        for source_code in files_source_codes:
-            tokens = self.token_extractor.extract_tokens(source_code)
-            files_tokens.append(tokens)
-
-        self.result = files_tokens
-        self.stage_data[StageData.Keys.FILE_LEVEL_TOKENS] = self.result
 
 
 class LineLevelToFileLevelDatasetMapperStage(PipelineStage):

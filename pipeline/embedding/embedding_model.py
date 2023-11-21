@@ -4,13 +4,14 @@ from pipeline.models import PipelineStage, StageData
 
 
 class EmbeddingModelTrainingStage(PipelineStage):
-    def __init__(self, embedding_cls, dataset_name, embedding_dimension=50, stage_data=None, perform_export=False,
-                 input_key=StageData.Keys.LINE_LEVEL_TOKENS):
+    def __init__(self, embedding_cls, dataset_name, embedding_dimension, token_extractor,
+                 stage_data=None, perform_export=False, is_file_level=True):
         super().__init__(stage_data, perform_export)
         self.embedding_cls = embedding_cls
         self.dataset_name = dataset_name
         self.embedding_dimension = embedding_dimension
-        self.input_key = input_key
+        self.token_extractor = token_extractor
+        self.is_file_level = is_file_level
 
     def export_result(self):
         if self.result is None:
@@ -19,16 +20,16 @@ class EmbeddingModelTrainingStage(PipelineStage):
         self.result.export_model()
 
     def process(self):
-        if self.input_key == StageData.Keys.LINE_LEVEL_TOKENS:
-            data = self.stage_data[self.input_key]
-        elif self.input_key == StageData.Keys.FILE_LEVEL_DF:
-            data = self.stage_data[self.input_key]['SRC'].tolist()
+        if self.is_file_level:
+            texts = self.stage_data[StageData.Keys.FILE_LEVEL_DF]['SRC'].tolist()
         else:
-            raise Exception()
+            texts = self.stage_data[StageData.Keys.LINE_LEVEL_DF]['code_line'].tolist()
+
         model = self.embedding_cls.train(
-            data,
+            texts,
             dataset_name=self.dataset_name,
-            embedding_dimension=self.embedding_dimension
+            embedding_dimension=self.embedding_dimension,
+            token_extractor=self.token_extractor
         )
 
         self.result = model
@@ -36,16 +37,18 @@ class EmbeddingModelTrainingStage(PipelineStage):
 
 
 class EmbeddingModelImporterStage(PipelineStage):
-    def __init__(self, embedding_cls, dataset_name, embedding_dimension=50):
+    def __init__(self, embedding_cls, dataset_name, embedding_dimension, token_extractor):
         super().__init__()
         self.embedding_cls = embedding_cls
         self.dataset_name = dataset_name
         self.embedding_dimension = embedding_dimension
+        self.token_extractor = token_extractor
 
     def import_model(self):
         model = self.embedding_cls.import_model(
             self.dataset_name,
-            embedding_dimenstion=self.embedding_dimension
+            embedding_dimenstion=self.embedding_dimension,
+            token_extractor=self.token_extractor
         )
 
         return model

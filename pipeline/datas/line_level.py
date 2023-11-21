@@ -1,5 +1,4 @@
 from data.models import LineLevelDatasetImporter
-from data.utils import LineLevelDatasetHelper
 from pipeline.models import PipelineStage, StageData
 
 
@@ -25,17 +24,3 @@ class LineLevelDatasetImporterStage(PipelineStage):
     def process(self):
         self.result = self.import_dataset()
         self.stage_data[StageData.Keys.LINE_LEVEL_DF] = self.result
-
-
-class LineLevelTokenizerStage(PipelineStage):
-    def __init__(self, token_extractor):
-        super().__init__()
-        self.token_extractor = token_extractor
-
-    def process(self):
-        df = self.stage_data[StageData.Keys.LINE_LEVEL_DF]
-        helper = LineLevelDatasetHelper(df, self.token_extractor)
-        tokens = helper.get_all_lines_tokens()
-
-        self.result = tokens
-        self.stage_data[StageData.Keys.LINE_LEVEL_TOKENS] = self.result
