@@ -30,6 +30,19 @@ class LineLevelDatasetImporter:
         return df
 
 
+class AggregatedDatasetImporter(LineLevelDatasetImporter, FileLevelDatasetImporter):
+    def __init__(self, releases):
+        self.releases = releases
+
+    def get_line_level_dataset(self):
+        dfs = [rel.get_line_level_dataset() for rel in self.releases if isinstance(rel, LineLevelDatasetImporter)]
+        return pd.concat(dfs, ignore_index=True)
+
+    def get_file_level_dataset(self):
+        dfs = [rel.get_file_level_dataset() for rel in self.releases if isinstance(rel, FileLevelDatasetImporter)]
+        return pd.concat(dfs, ignore_index=True)
+
+
 class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
@@ -107,6 +120,16 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
             project_name=self.name,
             release_name=train_release,
             line_level_bug_repository=LineLevelBugRepository(train_release),
+            file_level_dataset_save_dir=self.file_level_dataset_dir
+        )
+
+    def get_validation_release(self):
+        validation_release = self.get_eval_releases()[0]
+        return ProjectRelease(
+            line_level_dataset_save_dir=self.line_level_dataset_save_dir,
+            project_name=self.name,
+            release_name=validation_release,
+            line_level_bug_repository=LineLevelBugRepository(validation_release),
             file_level_dataset_save_dir=self.file_level_dataset_dir
         )
 
