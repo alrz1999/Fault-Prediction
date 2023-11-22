@@ -25,10 +25,10 @@ def main():
     # token_extractor = ASTExtractor()
     token_extractor = ASTTokenizer(False)
     vocab_counter = Counter()
-    to_lower_case = False
+    to_lowercase = False
 
     line_level_dataset = project.get_train_release().get_processed_line_level_dataset()
-    train_docs, train_labels = LineLevelToFileLevelDatasetMapper().prepare_data(line_level_dataset, to_lower_case)
+    train_docs, train_labels = LineLevelToFileLevelDatasetMapper().prepare_data(line_level_dataset, to_lowercase)
     for doc in train_docs:
         doc_tokens = token_extractor.extract_tokens(doc)
         vocab_counter.update(doc_tokens)
@@ -48,7 +48,7 @@ def main():
         # doc_tokens = [token for token in doc_tokens if token in vocabs]
         train_docs_tokens.append(doc_tokens)
 
-    tokenizer = Tokenizer(lower=to_lower_case)
+    tokenizer = Tokenizer(lower=to_lowercase)
     # fit the tokenizer on the documents
     tokenizer.fit_on_texts(train_docs_tokens)
 
@@ -62,7 +62,7 @@ def main():
     Ytrain = np.array([1 if label == True else 0 for label in train_labels])
     # SMOTE
     # Scale
-    Xtest, Ytest = get_x_y(max_length, project.get_validation_release(), to_lower_case, token_extractor, tokenizer)
+    Xtest, Ytest = get_x_y(max_length, project.get_validation_release(), to_lowercase, token_extractor, tokenizer)
 
     vocab_size = len(tokenizer.word_index) + 1
 
@@ -86,7 +86,7 @@ def main():
     print('Test Accuracy: %f' % (acc * 100))
 
     for release in project.get_eval_releases()[1:]:
-        Xeval, Y_eval = get_x_y(max_length, release, to_lower_case, token_extractor, tokenizer)
+        Xeval, Y_eval = get_x_y(max_length, release, to_lowercase, token_extractor, tokenizer)
         predictions = model.predict(Xeval)
         print(f'predictions = {predictions}')
         # Y_pred = list(map(bool, list(predictions)))
@@ -109,9 +109,9 @@ def main():
         plt.show()
 
 
-def get_x_y(max_length, release, to_lower_case, token_extractor, tokenizer):
+def get_x_y(max_length, release, to_lowercase, token_extractor, tokenizer):
     val_docs, val_labels = LineLevelToFileLevelDatasetMapper().prepare_data(
-        release.get_processed_line_level_dataset(), to_lower_case)
+        release.get_processed_line_level_dataset(), to_lowercase)
     validation_docs_tokens = []
     for doc in val_docs:
         doc_tokens = token_extractor.extract_tokens(doc)

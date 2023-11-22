@@ -102,7 +102,7 @@ def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_dat
 
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
              classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
-             vocab_size=None):
+             to_lowercase=False, vocab_size=None):
     metadata = StageData({
         'training_type': training_type.value,
         'dataset_type': dataset_type.value,
@@ -112,7 +112,8 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'batch_size': batch_size,
         'epochs': epochs,
         'token_extractor': token_extractor,
-        'vocab_size': vocab_size
+        'vocab_size': vocab_size,
+        'to_lowercase': to_lowercase
     })
 
     pipeline_data = get_data_importer_pipeline_data(
@@ -141,17 +142,19 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
 
 def mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = None
+    to_lowercase = False
     classify(
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=MLPBaseLineClassifier,
         embedding_cls=GensimWord2VecModel,
-        token_extractor=CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len),
+        token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=64,
         epochs=8,
+        to_lowercase=to_lowercase
     )
 
 
@@ -225,7 +228,8 @@ def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_im
 
 def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 150
-    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
+    to_lowercase = False
+    token_extractor = CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len)
     # token_extractor = ASTTokenizer(cross_project=False)
     # token_extractor = ASTExtractor()
 
@@ -239,12 +243,14 @@ def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_datase
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=64,
-        epochs=4
+        epochs=4,
+        to_lowercase=to_lowercase
     )
 
 
 def simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 400
+    to_lowercase = False
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -252,7 +258,7 @@ def simple_keras_classifier_with_external_embedding(train_dataset_name, train_da
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=SimpleKerasClassifierWithExternalEmbedding,
         embedding_cls=GensimWord2VecModel,
-        token_extractor=CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len),
+        token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
