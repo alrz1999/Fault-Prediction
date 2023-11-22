@@ -124,14 +124,7 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
         )
 
     def get_validation_release(self):
-        validation_release = self.get_eval_releases()[0]
-        return ProjectRelease(
-            line_level_dataset_save_dir=self.line_level_dataset_save_dir,
-            project_name=self.name,
-            release_name=validation_release,
-            line_level_bug_repository=LineLevelBugRepository(validation_release),
-            file_level_dataset_save_dir=self.file_level_dataset_dir
-        )
+        return self.get_eval_releases()[0]
 
     def get_eval_releases(self):
         eval_releases = Project.all_eval_releases[self.name]
