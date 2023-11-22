@@ -1,3 +1,5 @@
+import enum
+
 from classification.cnn.cnn_baseline import KerasCNNClassifier
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project, AggregatedDatasetImporter
@@ -17,19 +19,52 @@ from pipeline.evaluation.evaluation import EvaluationStage
 from pipeline.models import Pipeline, StageData
 
 
+class TrainingType(enum.Enum):
+    FILE_LEVEL = 'FILE_LEVEL'
+    CLASS_LEVEL = 'CLASS_LEVEL'
+    FUNCTION_LEVEL = 'FUNCTION_LEVEL'
+    LINE_LEVEL = 'LINE_LEVEL'
+
+
+class DatasetType(enum.Enum):
+    FILE_LEVEL = 'FILE_LEVEL'
+    LINE_LEVEL = 'LINE_LEVEL'
+
+
+def get_data_importer_pipeline_stages(dataset_importer):
+    if training_type == TrainingType.FILE_LEVEL:
+        if dataset_type == DatasetType.LINE_LEVEL:
+            training_data_importer_stages = [
+                LineLevelDatasetImporterStage(dataset_importer),
+                LineLevelToFileLevelDatasetMapperStage(),
+            ]
+        elif dataset_type == DatasetType.FILE_LEVEL:
+            training_data_importer_stages = [
+                FileLevelDatasetImporterStage(dataset_importer),
+            ]
+        else:
+            raise Exception(f'dataset_type {dataset_type} is not supported for training_type {training_type}')
+    elif training_type == TrainingType.LINE_LEVEL:
+        if dataset_type == DatasetType.LINE_LEVEL:
+            training_data_importer_stages = [
+                LineLevelDatasetImporterStage(dataset_importer),
+            ]
+        else:
+            raise Exception(f'dataset_type {dataset_type} is not supported for training_type {training_type}')
+    else:
+        raise Exception(f'training_type {training_type} is not supported')
+    return training_data_importer_stages
+
+
 def get_data_importer_pipeline_data(dataset_importer, metadata=None):
-    training_data_importer_stages = [
-        LineLevelDatasetImporterStage(dataset_importer),
-        LineLevelToFileLevelDatasetMapperStage(),
-    ]
+    training_data_importer_stages = get_data_importer_pipeline_stages(dataset_importer)
     training_data_importer_pipeline_data = Pipeline(training_data_importer_stages).run(metadata)
     return training_data_importer_pipeline_data
 
 
 def get_embedding_pipeline_data(embedding_cls, embedding_dim, dataset_name, token_extractor, training_data):
     embedding_stages = [
-        EmbeddingModelTrainingStage(embedding_cls, dataset_name, embedding_dim, token_extractor,
-                                    perform_export=False),
+        EmbeddingModelTrainingStage(embedding_cls, dataset_name, embedding_dim, token_extractor, perform_export=False),
     ]
     embedding_pipeline_data = Pipeline(embedding_stages).run(training_data)
     return embedding_pipeline_data
@@ -51,8 +86,7 @@ def get_classifier_pipeline_data(classifier_cls, train_dataset_name, training_da
 def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_data):
     for eval_dataset_importer in eval_dataset_importers:
         classifier_prediction_stages = [
-            LineLevelDatasetImporterStage(eval_dataset_importer),
-            LineLevelToFileLevelDatasetMapperStage(),
+            *get_data_importer_pipeline_stages(eval_dataset_importer),
             PredictingClassifierStage(
                 eval_dataset_importer.release_name,
                 output_columns=['Bug'],
@@ -67,7 +101,8 @@ def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_dat
 
 
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
-             classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs, vocab_size=None):
+             classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
+             vocab_size=None):
     metadata = StageData({
         'dataset_name': train_dataset_name,
         'embedding_dim': embedding_dim,
@@ -258,17 +293,19 @@ def get_cross_project_dataset():
     return 'cross-project', AggregatedDatasetImporter(train_releases), eval_releases
 
 
+training_type = TrainingType.LINE_LEVEL
+dataset_type = DatasetType.LINE_LEVEL
+
 if __name__ == '__main__':
     # generate_line_level_dfs()
 
+    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
+    # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
 
-    # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
-    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
-
-    # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
