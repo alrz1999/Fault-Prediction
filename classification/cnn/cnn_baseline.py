@@ -6,7 +6,6 @@ from keras import layers, Sequential
 from keras.src.utils import pad_sequences
 
 from classification.models import ClassifierModel
-from classification.utils import create_tensorflow_dataset
 from config import KERAS_CNN_SAVE_PREDICTION_DIR
 from embedding.models import EmbeddingModel
 
@@ -120,12 +119,6 @@ class KerasCNNClassifier(ClassifierModel):
 
         Y_pred = list(map(bool, list(self.model.predict(X_test))))
         return Y_pred
-
-    def evaluate(self, test_df, batch_size=32):
-        test_ds = create_tensorflow_dataset(test_df, batch_size=batch_size)
-        print(f"Number of batches in raw_test_ds: {test_ds.cardinality()}")
-
-        self.model.evaluate(test_ds)
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):

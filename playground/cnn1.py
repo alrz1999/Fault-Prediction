@@ -13,6 +13,7 @@ from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from data.models import Project
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
+from embedding.word2vec.word2vec import KerasTokenizer
 
 
 def main():
@@ -28,6 +29,7 @@ def main():
     to_lowercase = False
 
     line_level_dataset = project.get_train_release().get_processed_line_level_dataset()
+    line_level_dataset = line_level_dataset.rename(columns={'code_line': 'text', 'line-label': 'label'})
     train_docs, train_labels = LineLevelToFileLevelDatasetMapper().prepare_data(line_level_dataset, to_lowercase)
     for doc in train_docs:
         doc_tokens = token_extractor.extract_tokens(doc)
@@ -42,19 +44,13 @@ def main():
 
     vocabs = set(vocab_counter.keys())
 
-    train_docs_tokens = []
-    for doc in train_docs:
-        doc_tokens = token_extractor.extract_tokens(doc)
-        # doc_tokens = [token for token in doc_tokens if token in vocabs]
-        train_docs_tokens.append(doc_tokens)
-
-    tokenizer = Tokenizer(lower=to_lowercase)
+    embedding_model = KerasTokenizer.train(train_docs,
+                                           metadata={'to_lowercase': to_lowercase, 'token_extractor': token_extractor})
     # fit the tokenizer on the documents
-    tokenizer.fit_on_texts(train_docs_tokens)
-
-    train_encoded_docs = tokenizer.texts_to_sequences(train_docs_tokens)
-    print(f"len(vocabs - set(tokenizer.word_index.keys())):  {len(vocabs - set(tokenizer.word_index.keys()))}")
-    print(f'tokenizer size: {len(tokenizer.word_index)}')
+    train_encoded_docs = embedding_model.text_to_indexes(train_docs)
+    print(
+        f"len(vocabs - set(tokenizer.word_index.keys())):  {len(vocabs - set(embedding_model.get_word_to_index_dict().keys()))}")
+    print(f'tokenizer size: {embedding_model.get_vocab_size()}')
 
     # pad sequences
     max_length = max([len(encoded_doc) for encoded_doc in train_encoded_docs])
@@ -62,9 +58,9 @@ def main():
     Ytrain = np.array([1 if label == True else 0 for label in train_labels])
     # SMOTE
     # Scale
-    Xtest, Ytest = get_x_y(max_length, project.get_validation_release(), to_lowercase, token_extractor, tokenizer)
+    Xtest, Ytest = get_x_y(max_length, project.get_validation_release(), to_lowercase, embedding_model)
 
-    vocab_size = len(tokenizer.word_index) + 1
+    vocab_size = embedding_model.get_vocab_size()
 
     model = Sequential()
     model.add(layers.Embedding(vocab_size, 100, input_length=max_length))
@@ -86,7 +82,7 @@ def main():
     print('Test Accuracy: %f' % (acc * 100))
 
     for release in project.get_eval_releases()[1:]:
-        Xeval, Y_eval = get_x_y(max_length, release, to_lowercase, token_extractor, tokenizer)
+        Xeval, Y_eval = get_x_y(max_length, release, to_lowercase, embedding_model)
         predictions = model.predict(Xeval)
         print(f'predictions = {predictions}')
         # Y_pred = list(map(bool, list(predictions)))
@@ -109,15 +105,11 @@ def main():
         plt.show()
 
 
-def get_x_y(max_length, release, to_lowercase, token_extractor, tokenizer):
-    val_docs, val_labels = LineLevelToFileLevelDatasetMapper().prepare_data(
-        release.get_processed_line_level_dataset(), to_lowercase)
-    validation_docs_tokens = []
-    for doc in val_docs:
-        doc_tokens = token_extractor.extract_tokens(doc)
-        # doc_tokens = [token for token in doc_tokens if token in vocabs]
-        validation_docs_tokens.append(doc_tokens)
-    validation_encoded_docs = tokenizer.texts_to_sequences(validation_docs_tokens)
+def get_x_y(max_length, release, to_lowercase, embedding_model):
+    line_level_dataset = release.get_processed_line_level_dataset()
+    line_level_dataset = line_level_dataset.rename(columns={'code_line': 'text', 'line-label': 'label'})
+    val_docs, val_labels = LineLevelToFileLevelDatasetMapper().prepare_data(line_level_dataset, to_lowercase)
+    validation_encoded_docs = embedding_model.text_to_indexes(val_docs)
     Xtest = pad_sequences(validation_encoded_docs, maxlen=max_length, padding='post')
     Ytest = np.array([1 if label == True else 0 for label in val_labels])
     return Xtest, Ytest

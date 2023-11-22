@@ -11,7 +11,6 @@ from tensorflow import keras
 
 from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR
 from classification.models import ClassifierModel
-from classification.utils import create_tensorflow_dataset
 
 
 class CustomModel:
@@ -344,9 +343,3 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
 
         Y_pred = list(map(bool, list(self.model.predict(X_test))))
         return Y_pred
-
-    def evaluate(self, test_df, batch_size=32):
-        test_ds = create_tensorflow_dataset(test_df, batch_size=batch_size)
-        print(f"Number of batches in raw_test_ds: {test_ds.cardinality()}")
-
-        self.model.evaluate(test_ds)

@@ -175,35 +175,37 @@ def bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_impo
 
 def keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 50
-
+    to_lowercase = False
     classify(
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=KerasCountVectorizerAndDenseLayer,
         embedding_cls=SklearnCountTokenizer,
-        token_extractor=CustomTokenExtractor(True, max_seq_len),
+        token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=64,
         epochs=8,
+        to_lowercase=to_lowercase
     )
 
 
 def keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 600
-
+    to_lowercase = False
     classify(
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=KerasTokenizerAndDenseLayer,
         embedding_cls=KerasTokenizer,
-        token_extractor=CustomTokenExtractor(True, max_seq_len),
+        token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
         embedding_dim=250,
         max_seq_len=max_seq_len,
         batch_size=64,
-        epochs=8
+        epochs=8,
+        to_lowercase=to_lowercase
     )
 
 
@@ -301,7 +303,7 @@ def get_cross_project_dataset():
     return 'cross-project', AggregatedDatasetImporter(train_releases), eval_releases
 
 
-training_type = TrainingType.LINE_LEVEL
+training_type = TrainingType.FILE_LEVEL
 dataset_type = DatasetType.LINE_LEVEL
 
 if __name__ == '__main__':
@@ -313,7 +315,7 @@ if __name__ == '__main__':
     # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)

@@ -32,7 +32,7 @@ class LineLevelToFileLevelDatasetMapper:
         for filename, group_df in df.groupby('filename'):
             file_label = bool(group_df['file-label'].unique().any())
 
-            code = list(group_df['code_line'])
+            code = list(group_df['text'])
 
             code_str = self.get_code_str(code, to_lowercase)
 
@@ -41,12 +41,3 @@ class LineLevelToFileLevelDatasetMapper:
             all_file_label.append(file_label)
 
         return all_code_str, all_file_label
-
-
-def create_tensorflow_dataset(data, batch_size=None, shuffle=False):
-    dataset = tf.data.Dataset.from_tensor_slices((data['SRC'].values, data['Bug'].values))
-    if shuffle:
-        dataset = dataset.shuffle(len(data))
-    if batch_size is not None:
-        dataset = dataset.batch(batch_size)
-    return dataset

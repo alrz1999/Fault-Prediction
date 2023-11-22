@@ -43,8 +43,8 @@ class GensimWord2VecModel(EmbeddingModel):
 
         tokens = [token_extractor.extract_tokens(text) for text in texts]
         model = Word2Vec(tokens, vector_size=embedding_dim, min_count=1, sorted_vocab=1)
-        output_model = GensimWord2VecModel(model, dataset_name, embedding_dim, token_extractor)
-        print(f"vocab_size: {output_model.get_vocab_size()}")
+        output_model = cls(model, dataset_name, embedding_dim, token_extractor)
+        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
         return output_model
 
     @classmethod
@@ -103,9 +103,15 @@ class KerasTokenizer(EmbeddingModel):
     @classmethod
     def train(cls, texts, metadata):
         embedding_dim = metadata.get('embedding_dim')
-        tokenizer = Tokenizer()
-        tokenizer.fit_on_texts(texts)
-        return cls(tokenizer, embedding_dim)
+        token_extractor: TokenExtractor = metadata.get('token_extractor')
+        to_lowercase = metadata.get('to_lowercase')
+
+        tokens = [token_extractor.extract_tokens(text) for text in texts]
+        tokenizer = Tokenizer(lower=to_lowercase)
+        tokenizer.fit_on_texts(tokens)
+        output_model = cls(tokenizer, embedding_dim)
+        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+        return output_model
 
     def text_to_indexes(self, texts):
         return self.tokenizer.texts_to_sequences(texts)
@@ -133,7 +139,9 @@ class SklearnCountTokenizer(EmbeddingModel):
         embedding_dim = metadata.get('embedding_dim')
         vectorizer = CountVectorizer()
         vectorizer.fit(texts)
-        return cls(vectorizer, embedding_dim)
+        output_model = cls(vectorizer, embedding_dim)
+        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+        return output_model
 
     def text_to_indexes(self, texts):
         return self.count_vectorizer.transform(texts)
@@ -168,7 +176,9 @@ class KerasTextVectorizer(EmbeddingModel):
             output_sequence_length=output_sequence_length,
         )
         vectorize_layer.adapt(texts)
-        return cls(vectorize_layer, embedding_dim)
+        output_model = cls(vectorize_layer, embedding_dim)
+        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+        return output_model
 
     def text_to_indexes(self, texts):
         # text = tf.expand_dims(text, -1)
