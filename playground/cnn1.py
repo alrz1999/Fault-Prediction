@@ -13,7 +13,7 @@ from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
 from data.models import Project
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
-from embedding.word2vec.word2vec import KerasTokenizer
+from embedding.word2vec.word2vec import KerasTokenizer, GensimWord2VecModel
 
 
 def main():
@@ -27,6 +27,7 @@ def main():
     token_extractor = ASTTokenizer(False)
     vocab_counter = Counter()
     to_lowercase = False
+    embedding_dim = 100
 
     line_level_dataset = project.get_train_release().get_processed_line_level_dataset()
     line_level_dataset = line_level_dataset.rename(columns={'code_line': 'text', 'line-label': 'label'})
@@ -44,8 +45,10 @@ def main():
 
     vocabs = set(vocab_counter.keys())
 
-    embedding_model = KerasTokenizer.train(train_docs,
-                                           metadata={'to_lowercase': to_lowercase, 'token_extractor': token_extractor})
+    embedding_model = GensimWord2VecModel.train(
+        train_docs,
+        metadata={'to_lowercase': to_lowercase, 'token_extractor': token_extractor, 'embedding_dim': embedding_dim}
+    )
     # fit the tokenizer on the documents
     train_encoded_docs = embedding_model.text_to_indexes(train_docs)
     print(
@@ -63,7 +66,7 @@ def main():
     vocab_size = embedding_model.get_vocab_size()
 
     model = Sequential()
-    model.add(layers.Embedding(vocab_size, 100, input_length=max_length))
+    model.add(layers.Embedding(vocab_size, embedding_dim, input_length=max_length))
     model.add(layers.Conv1D(filters=32, kernel_size=8, activation='relu'))
     model.add(layers.MaxPooling1D(pool_size=2))
     model.add(layers.Flatten())
