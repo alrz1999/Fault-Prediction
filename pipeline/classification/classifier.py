@@ -15,7 +15,11 @@ class ClassifierTrainingStage(PipelineStage):
         self.result.export_model()
 
     def process(self):
-        train_data = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]
+        if self.is_file_level():
+            train_data = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]
+        else:
+            train_data = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]
+
         model = self.classifier_cls.train(
             train_data,
             self.dataset_name,
@@ -43,7 +47,10 @@ class PredictingClassifierStage(PipelineStage):
         self.result.to_csv(self.get_classifier().get_result_dataset_path(self.dataset_name), index=False)
 
     def process(self):
-        data = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value].copy()
+        if self.is_file_level():
+            data = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]
+        else:
+            data = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]
         predicted_labels = self.get_classifier().predict(data, metadata=self.stage_data)
         if self.output_columns is not None:
             data = data[self.output_columns]

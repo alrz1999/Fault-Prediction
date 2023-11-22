@@ -5,7 +5,7 @@ from pipeline.models import PipelineStage, StageData
 
 class EmbeddingModelTrainingStage(PipelineStage):
     def __init__(self, embedding_cls, dataset_name, embedding_dim, token_extractor,
-                 stage_data=None, perform_export=False, is_file_level=True):
+                 stage_data=None, perform_export=False):
         super().__init__(stage_data, perform_export)
         self.embedding_cls = embedding_cls
 
@@ -18,8 +18,6 @@ class EmbeddingModelTrainingStage(PipelineStage):
         self.token_extractor = token_extractor
         self.stage_data.add_data('token_extractor', token_extractor)
 
-        self.is_file_level = is_file_level
-
     def export_result(self):
         if self.result is None:
             raise Exception("Output data is not ready for exporting")
@@ -27,12 +25,10 @@ class EmbeddingModelTrainingStage(PipelineStage):
         self.result.export_model()
 
     def process(self):
-        if self.token_extractor is not None:
-            self.stage_data['token_extractor'] = self.token_extractor
-        if self.is_file_level:
-            texts = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]['SRC'].tolist()
+        if self.is_file_level():
+            texts = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]['text'].tolist()
         else:
-            texts = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]['code_line'].tolist()
+            texts = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]['text'].tolist()
 
         model = self.embedding_cls.train(
             texts,

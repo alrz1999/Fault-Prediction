@@ -56,11 +56,10 @@ class KerasClassifier(ClassifierModel):
 
         # Conv1D + global max pooling
         x = layers.Conv1D(128, 7, padding="valid", activation="relu", strides=3)(x)
-        x = layers.Conv1D(128, 7, padding="valid", activation="relu", strides=3)(x)
         x = layers.GlobalMaxPooling1D()(x)
 
         # We add a vanilla hidden layer:
-        x = layers.Dense(128, activation="relu")(x)
+        x = layers.Dense(32, activation="relu")(x)
         x = layers.Dropout(0.5)(x)
 
         # We project onto a single unit output layer, and squash it with a sigmoid:
@@ -80,7 +79,7 @@ class KerasClassifier(ClassifierModel):
         epochs = metadata.get('epochs')
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X = embedding_model.text_to_indexes(codes)
         vocab_size = embedding_model.get_vocab_size()
@@ -103,7 +102,7 @@ class KerasClassifier(ClassifierModel):
     def predict(self, df, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X_test = self.embedding_model.text_to_indexes(codes)
 
@@ -140,7 +139,7 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
         embedding_model = metadata.get('embedding_model')
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X = embedding_model.text_to_indexes(codes).toarray()
         vocab_size = embedding_model.get_vocab_size()
@@ -169,7 +168,7 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
     def predict(self, df, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X = self.embedding_model.text_to_indexes(codes).toarray()
 
@@ -215,7 +214,7 @@ class KerasTokenizerAndDenseLayer(KerasCountVectorizerAndDenseLayer):
 
     @classmethod
     def train(cls, df, dataset_name, metadata=None):
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
         max_seq_len = metadata.get('max_seq_len')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -252,7 +251,7 @@ class KerasTokenizerAndDenseLayer(KerasCountVectorizerAndDenseLayer):
         return cls(model, embedding_model)
 
     def predict(self, df, metadata=None):
-        test_code, labels = df['SRC'], df['Bug']
+        test_code, labels = df['text'], df['label']
         max_seq_len = metadata.get('max_seq_len')
 
         X = self.embedding_model.text_to_indexes(test_code)
@@ -306,7 +305,7 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
         max_seq_len = metadata.get('max_seq_len')
         embedding_matrix = metadata.get('embedding_matrix')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X = embedding_model.text_to_indexes(codes)
         vocab_size = embedding_model.get_vocab_size()
@@ -338,7 +337,7 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
     def predict(self, df, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X_test = self.embedding_model.text_to_indexes(codes)
         X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)

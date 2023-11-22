@@ -20,7 +20,7 @@ def main():
     stages = [
         LineLevelDatasetImporterStage(train_release),
         EmbeddingModelTrainingStage(GensimWord2VecModel, project.name, embedding_dim, token_extractor,
-                                    perform_export=False, is_file_level=False)
+                                    perform_export=False)
     ]
 
     pipeline_data = Pipeline(stages).run()

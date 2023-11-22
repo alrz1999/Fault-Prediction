@@ -21,18 +21,20 @@ class MLPBaseLineClassifier(ClassifierModel):
     def train(cls, df, dataset_name, metadata=None):
         embedding_model = metadata.get('embedding_model')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X = np.array(embedding_model.text_to_vec(codes))
         Y = np.array([1 if label == True else 0 for label in labels])
 
         sm = SMOTE(random_state=42)
-        X_res, y_res = sm.fit_resample(X, Y)
+        X, Y = sm.fit_resample(X, Y)
+        print('SMOTE Done')
 
         clf = MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=500, random_state=42)
         scaler = StandardScaler()
-        X_res_scaled = scaler.fit_transform(X_res)
-        clf.fit(X_res_scaled, y_res)
+        X = scaler.fit_transform(X)
+        print('Scalar Done')
+        clf.fit(X, Y)
         print('finished training model for', dataset_name)
 
         return cls(clf, scaler, dataset_name)
@@ -62,7 +64,7 @@ class MLPBaseLineClassifier(ClassifierModel):
 
     def predict(self, df, metadata=None):
         embedding_model = metadata.get('embedding_model')
-        codes = df['SRC']
+        codes = df['text']
 
         embeddings = embedding_model.text_to_vec(codes)
 

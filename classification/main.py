@@ -89,9 +89,9 @@ def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_dat
             *get_data_importer_pipeline_stages(eval_dataset_importer),
             PredictingClassifierStage(
                 eval_dataset_importer.release_name,
-                output_columns=['Bug'],
-                new_columns={'project': eval_dataset_importer.project_name, 'train': train_dataset_name,
-                             'test': eval_dataset_importer.release_name},
+                output_columns=['label'],
+                # new_columns={'project': eval_dataset_importer.project_name, 'train': train_dataset_name,
+                #              'test': eval_dataset_importer.release_name},
                 perform_export=False
             ),
             EvaluationStage()
@@ -104,6 +104,8 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
              classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
              vocab_size=None):
     metadata = StageData({
+        'training_type': training_type.value,
+        'dataset_type': dataset_type.value,
         'dataset_name': train_dataset_name,
         'embedding_dim': embedding_dim,
         'max_seq_len': max_seq_len,
@@ -203,7 +205,7 @@ def keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, 
 
 
 def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 300
+    max_seq_len = 200
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -211,20 +213,20 @@ def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_im
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=KerasClassifier,
         embedding_cls=GensimWord2VecModel,
-        token_extractor=ASTTokenizer(True),
+        token_extractor=ASTTokenizer(False),
         # token_extractor=ASTTokenizer(True),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=64,
-        epochs=8,
+        epochs=2,
         vocab_size=10000
     )
 
 
 def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 150
-    # token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
-    token_extractor = ASTTokenizer(cross_project=False)
+    token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=max_seq_len)
+    # token_extractor = ASTTokenizer(cross_project=False)
     # token_extractor = ASTExtractor()
 
     classify(
@@ -302,10 +304,10 @@ if __name__ == '__main__':
     train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
 
-    mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)

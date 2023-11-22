@@ -92,6 +92,15 @@ class PipelineStage:
     def __repr__(self):
         return self.name
 
+    def is_file_level(self):
+        training_type = self.stage_data['training_type']
+        if training_type == 'FILE_LEVEL':
+            return True
+        elif training_type == 'LINE_LEVEL':
+            return False
+        else:
+            raise Exception('training_type data should be provided to this stage')
+
 
 class Pipeline:
     def __init__(self, stages):

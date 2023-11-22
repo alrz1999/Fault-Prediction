@@ -80,7 +80,7 @@ class KerasCNNClassifier(ClassifierModel):
         epochs = metadata.get('epochs')
         embedding_matrix = metadata.get('embedding_matrix')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X = embedding_model.text_to_indexes(codes)
         vocab_size = embedding_model.get_vocab_size()
@@ -112,7 +112,7 @@ class KerasCNNClassifier(ClassifierModel):
     def predict(self, df, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = df['SRC'], df['Bug']
+        codes, labels = df['text'], df['label']
 
         X_test = self.embedding_model.text_to_indexes(codes)
 

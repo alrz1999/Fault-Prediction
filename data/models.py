@@ -285,16 +285,16 @@ class SourceCodeFile(LineLevelDatasetImporter):
 
         df['filename'] = [self.filename] * len(code_lines)
         df['is_test_file'] = [is_test] * len(code_lines)
-        df['code_line'] = preprocess_code_lines
+        df['text'] = preprocess_code_lines
         df['line_number'] = np.arange(1, len(code_lines) + 1)
         df['is_comment'] = is_comments
         df['is_blank'] = is_blank_line
 
         df['file-label'] = [self.is_buggy] * len(code_lines)
-        df['line-label'] = [False] * len(code_lines)
+        df['label'] = [False] * len(code_lines)
 
         if self.is_buggy:
             buggy_lines = self.line_level_bug_repository.get_file_buggy_lines(self.filename)
-            df['line-label'] = df['line_number'].isin(buggy_lines)
+            df['label'] = df['line_number'].isin(buggy_lines)
 
         return df

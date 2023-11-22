@@ -43,7 +43,9 @@ class GensimWord2VecModel(EmbeddingModel):
 
         tokens = [token_extractor.extract_tokens(text) for text in texts]
         model = Word2Vec(tokens, vector_size=embedding_dim, min_count=1, sorted_vocab=1)
-        return GensimWord2VecModel(model, dataset_name, embedding_dim, token_extractor)
+        output_model = GensimWord2VecModel(model, dataset_name, embedding_dim, token_extractor)
+        print(f"vocab_size: {output_model.get_vocab_size()}")
+        return output_model
 
     @classmethod
     def get_model_save_path(cls, dataset_name, metadata):
@@ -53,10 +55,12 @@ class GensimWord2VecModel(EmbeddingModel):
     def text_to_vec(self, texts):
         vecs = []
         for text in texts:
-            vec = [
-                self.model.wv[word] if word in self.model.wv else np.zeros(self.model.vector_size) for word
-                in
-                self.token_extractor.extract_tokens(text)]
+            tokens = self.token_extractor.extract_tokens(text)
+            if len(tokens) > 0:
+                vec = [self.model.wv[word] if word in self.model.wv else np.zeros(self.model.vector_size) for word in
+                       tokens]
+            else:
+                vec = [np.zeros(self.model.vector_size)]
             vec = np.mean(vec, axis=0)
             vecs.append(vec)
         return vecs

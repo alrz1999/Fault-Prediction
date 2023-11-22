@@ -18,7 +18,7 @@ def main():
     ]
 
     pipeline_data = Pipeline(stages).run()[StageData.Keys.FILE_LEVEL_DF.value]
-    files_tokens = tokenizer.extract_tokens(pipeline_data['SRC'].tolist()[0])
+    files_tokens = tokenizer.extract_tokens(pipeline_data['text'].tolist()[0])
     print(files_tokens)
 
 
