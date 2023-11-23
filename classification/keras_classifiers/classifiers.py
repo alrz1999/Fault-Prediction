@@ -271,3 +271,28 @@ class KerasBiLSTMClassifier(KerasClassifier):
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
         return model
+
+
+class KerasGRUClassifier(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+        model = Sequential()
+
+        model.add(
+            layers.Embedding(
+                vocab_size, embedding_dim,
+                # weights=[embedding_matrix] if embedding_matrix is not None else None,
+                weights=[embedding_matrix],
+                input_length=max_seq_len,
+                trainable=True
+            )
+        )
+
+        model.add(layers.SpatialDropout1D(0.2))
+        model.add(layers.GRU(128, return_sequences=False))
+        model.add(layers.Dropout(0.2))
+        model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
+
+        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
+        return model
