@@ -227,3 +227,20 @@ class KerasCNNClassifier(KerasClassifier):
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
         return os.path.join(KERAS_SAVE_PREDICTION_DIR, dataset_name + '.csv')
+
+
+class KerasLSTMClassifier(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+        inputs = tf.keras.Input(shape=(None,), dtype="int64")
+        x = layers.Embedding(vocab_size, embedding_dim)(inputs)
+        x = layers.LSTM(64)(x)
+        x = layers.Dense(256, name='FC1')(x)
+        x = layers.Activation('relu')(x)
+        x = layers.Dropout(0.5)(x)
+        x = layers.Dense(1, name='out_layer')(x)
+        x = layers.Activation('sigmoid')(x)
+        model = tf.keras.Model(inputs=inputs, outputs=x)
+        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
+        return model
