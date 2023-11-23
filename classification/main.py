@@ -126,7 +126,7 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
             embedding_cls=embedding_cls,
             embedding_dim=embedding_dim,
             dataset_name=train_dataset_name,
-            # dataset_name=project.name,
+            # dataset_name=project.name, #TODO
             token_extractor=token_extractor,
             training_data=pipeline_data
         )
@@ -224,7 +224,8 @@ def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_im
         max_seq_len=max_seq_len,
         batch_size=64,
         epochs=2,
-        vocab_size=10000
+        vocab_size=10000,
+        to_lowercase=False
     )
 
 
@@ -315,7 +316,7 @@ if __name__ == '__main__':
     # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)

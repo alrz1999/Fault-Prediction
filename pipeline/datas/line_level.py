@@ -22,7 +22,6 @@ class LineLevelDatasetImporterStage(PipelineStage):
         )
         return df.rename(columns={'code_line': 'text', 'line-label': 'label'})
 
-
     def process(self):
         self.result = self.import_dataset()
         self.stage_data[StageData.Keys.LINE_LEVEL_DF.value] = self.result

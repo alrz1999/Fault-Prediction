@@ -1,8 +1,6 @@
-import tensorflow as tf
-
-
 class LineLevelToFileLevelDatasetMapper:
-    def get_code_str(self, code, to_lowercase):
+    @classmethod
+    def get_code_str(cls, code, to_lowercase):
         """
             input
                 code (list): a list of code lines from dataset
@@ -18,7 +16,8 @@ class LineLevelToFileLevelDatasetMapper:
 
         return code_str
 
-    def prepare_data(self, df, to_lowercase=False):
+    @classmethod
+    def prepare_data(cls, df, to_lowercase=False):
         '''
             input
                 df (DataFrame): input data from get_df() function
@@ -34,7 +33,7 @@ class LineLevelToFileLevelDatasetMapper:
 
             code = list(group_df['text'])
 
-            code_str = self.get_code_str(code, to_lowercase)
+            code_str = cls.get_code_str(code, to_lowercase)
 
             all_code_str.append(code_str)
 

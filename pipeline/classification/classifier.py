@@ -30,8 +30,7 @@ class ClassifierTrainingStage(PipelineStage):
 
 
 class PredictingClassifierStage(PipelineStage):
-    def __init__(self, dataset_name, output_columns=None,
-                 new_columns=None, perform_export=False):
+    def __init__(self, dataset_name, output_columns=None, new_columns=None, perform_export=False):
         super().__init__(perform_export=perform_export)
         self.dataset_name = dataset_name
         self.output_columns = output_columns

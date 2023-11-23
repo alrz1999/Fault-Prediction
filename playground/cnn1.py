@@ -31,7 +31,7 @@ def main():
 
     line_level_dataset = project.get_train_release().get_processed_line_level_dataset()
     line_level_dataset = line_level_dataset.rename(columns={'code_line': 'text', 'line-label': 'label'})
-    train_docs, train_labels = LineLevelToFileLevelDatasetMapper().prepare_data(line_level_dataset, to_lowercase)
+    train_docs, train_labels = LineLevelToFileLevelDatasetMapper.prepare_data(line_level_dataset, to_lowercase)
     for doc in train_docs:
         doc_tokens = token_extractor.extract_tokens(doc)
         vocab_counter.update(doc_tokens)
@@ -119,7 +119,7 @@ def main():
 def get_x_y(max_length, release, to_lowercase, embedding_model):
     line_level_dataset = release.get_processed_line_level_dataset()
     line_level_dataset = line_level_dataset.rename(columns={'code_line': 'text', 'line-label': 'label'})
-    val_docs, val_labels = LineLevelToFileLevelDatasetMapper().prepare_data(line_level_dataset, to_lowercase)
+    val_docs, val_labels = LineLevelToFileLevelDatasetMapper.prepare_data(line_level_dataset, to_lowercase)
     validation_encoded_docs = embedding_model.text_to_indexes(val_docs)
     Xtest = pad_sequences(validation_encoded_docs, maxlen=max_length, padding='post')
     Ytest = np.array([1 if label == True else 0 for label in val_labels])
