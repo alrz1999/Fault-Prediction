@@ -296,3 +296,28 @@ class KerasGRUClassifier(KerasClassifier):
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
         return model
+
+
+class KerasCNNandLSTMClassifier(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+        model = Sequential()
+
+        model.add(
+            layers.Embedding(
+                vocab_size, embedding_dim,
+                # weights=[embedding_matrix] if embedding_matrix is not None else None,
+                weights=[embedding_matrix],
+                input_length=max_seq_len,
+                trainable=True
+            )
+        )
+
+        model.add(layers.Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
+        model.add(layers.MaxPooling1D(pool_size=2))
+        model.add(layers.LSTM(100))
+        model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
+
+        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
+        return model
