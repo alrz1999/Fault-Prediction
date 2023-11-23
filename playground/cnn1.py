@@ -2,7 +2,6 @@ from collections import Counter
 
 import numpy as np
 from keras import Sequential, layers
-from keras.src.preprocessing.text import Tokenizer
 from keras.src.utils import pad_sequences
 from matplotlib import pyplot as plt
 from sklearn.metrics import roc_curve, auc
@@ -28,6 +27,7 @@ def main():
     vocab_counter = Counter()
     to_lowercase = False
     embedding_dim = 100
+    train_embedding_layer_in_classification_training = False
 
     line_level_dataset = project.get_train_release().get_processed_line_level_dataset()
     line_level_dataset = line_level_dataset.rename(columns={'code_line': 'text', 'line-label': 'label'})
@@ -64,13 +64,21 @@ def main():
     Xtest, Ytest = get_x_y(max_length, project.get_validation_release(), to_lowercase, embedding_model)
 
     vocab_size = embedding_model.get_vocab_size()
+    embedding_vectors = embedding_model.get_index_to_vec_matrix(embedding_model.get_word_to_index_dict(), vocab_size,
+                                                                embedding_dim)
 
     model = Sequential()
-    model.add(layers.Embedding(vocab_size, embedding_dim, input_length=max_length))
-    model.add(layers.Conv1D(filters=32, kernel_size=8, activation='relu'))
+    model.add(layers.Embedding(
+        vocab_size, embedding_dim,
+        weights=[embedding_vectors],
+        input_length=max_length,
+        trainable=train_embedding_layer_in_classification_training)
+    )
+    # model.add(layers.Conv1D(filters=32, kernel_size=8, activation='relu'))
+    model.add(layers.Conv1D(filters=128, kernel_size=5, activation='relu'))
     model.add(layers.MaxPooling1D(pool_size=2))
     model.add(layers.Flatten())
-    model.add(layers.Dense(10, activation='relu'))
+    # model.add(layers.Dense(10, activation='relu'))
     model.add(layers.Dense(1, activation='sigmoid'))
 
     # compile network
