@@ -137,14 +137,15 @@ class SklearnCountTokenizer(EmbeddingModel):
     @classmethod
     def train(cls, texts, metadata):
         embedding_dim = metadata.get('embedding_dim')
-        vectorizer = CountVectorizer()
+        to_lowercase = metadata.get('to_lowercase')
+        vectorizer = CountVectorizer(lowercase=to_lowercase)
         vectorizer.fit(texts)
         output_model = cls(vectorizer, embedding_dim)
         print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
         return output_model
 
     def text_to_indexes(self, texts):
-        return self.count_vectorizer.transform(texts)
+        return self.count_vectorizer.transform(texts).toarray()
 
     def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
         return None

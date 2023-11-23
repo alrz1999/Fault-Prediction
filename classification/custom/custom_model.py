@@ -113,7 +113,7 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
 
         codes, labels = df['text'], df['label']
 
-        X = embedding_model.text_to_indexes(codes).toarray()
+        X = embedding_model.text_to_indexes(codes)
         vocab_size = embedding_model.get_vocab_size()
         embedding_dim = embedding_model.get_embedding_dim()
 
@@ -142,7 +142,7 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
 
         codes, labels = df['text'], df['label']
 
-        X = self.embedding_model.text_to_indexes(codes).toarray()
+        X = self.embedding_model.text_to_indexes(codes)
 
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
         return self.model.predict(X)
