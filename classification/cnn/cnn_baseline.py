@@ -117,8 +117,7 @@ class KerasCNNClassifier(ClassifierModel):
 
         X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
 
-        Y_pred = list(map(bool, list(self.model.predict(X_test))))
-        return Y_pred
+        return self.model.predict(X_test)
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):

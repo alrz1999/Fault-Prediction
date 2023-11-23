@@ -210,7 +210,7 @@ def keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, 
 
 
 def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 200
+    max_seq_len = None
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -223,7 +223,7 @@ def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_im
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=64,
-        epochs=2,
+        epochs=10,
         vocab_size=10000,
         to_lowercase=False
     )

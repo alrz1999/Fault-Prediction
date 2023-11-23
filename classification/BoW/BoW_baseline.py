@@ -65,8 +65,7 @@ class BOWBaseLineClassifier(ClassifierModel):
 
         X = self.vectorizer.transform(test_code).toarray()
 
-        Y_pred = list(map(bool, list(self.model.predict(X))))
-        return Y_pred
+        return self.model.predict(X)
 
         # Y_prob = self.model.predict_proba(X)
         # Y_prob = list(Y_prob[:, 1])

@@ -69,9 +69,7 @@ class MLPBaseLineClassifier(ClassifierModel):
         embeddings = embedding_model.text_to_vec(codes)
 
         X_scaled = self.scaler.transform(embeddings)
-        Y_pred = list(map(bool, list(self.model.predict(X_scaled))))
-
-        return Y_pred
+        return self.model.predict(X_scaled)
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):

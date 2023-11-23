@@ -13,31 +13,6 @@ from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR
 from classification.models import ClassifierModel
 
 
-class CustomModel:
-    def __init__(self, input_dim, output_dim):
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.model = self.build_model()
-
-    def build_model(self):
-        model = keras.Sequential([
-            keras.layers.Input(shape=(self.input_dim,)),  # Input layer matching feature vector shape
-            keras.layers.Dense(64, activation='relu'),
-            keras.layers.Dense(self.output_dim, activation='softmax'),  # Output layer
-        ])
-
-        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        model.summary()
-        return model
-
-    def train(self, X, y, epochs=10, batch_size=32):
-        self.model.fit(X, y, epochs=epochs, batch_size=batch_size)
-
-    def predict(self, X):
-        predictions = self.model.predict(X)
-        return predictions
-
-
 class KerasClassifier(ClassifierModel):
     def __init__(self, model, embedding_model):
         self.model = model
@@ -106,9 +81,7 @@ class KerasClassifier(ClassifierModel):
         X_test = self.embedding_model.text_to_indexes(codes)
 
         X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
-        Y_pred = list(map(bool, list(self.model.predict(X_test))))
-
-        return Y_pred
+        return self.model.predict(X_test)
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
@@ -172,8 +145,7 @@ class KerasCountVectorizerAndDenseLayer(ClassifierModel):
         X = self.embedding_model.text_to_indexes(codes).toarray()
 
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
-        Y_pred = list(map(bool, list(self.model.predict(X))))
-        return Y_pred
+        return self.model.predict(X)
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
@@ -256,8 +228,7 @@ class KerasTokenizerAndDenseLayer(KerasCountVectorizerAndDenseLayer):
         X = self.embedding_model.text_to_indexes(test_code)
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
 
-        Y_pred = list(map(bool, list(self.model.predict(X))))
-        return Y_pred
+        return self.model.predict(X)
 
 
 class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
@@ -341,5 +312,4 @@ class SimpleKerasClassifierWithExternalEmbedding(ClassifierModel):
         X_test = self.embedding_model.text_to_indexes(codes)
         X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
 
-        Y_pred = list(map(bool, list(self.model.predict(X_test))))
-        return Y_pred
+        return self.model.predict(X_test)

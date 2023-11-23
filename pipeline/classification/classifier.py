@@ -50,12 +50,12 @@ class PredictingClassifierStage(PipelineStage):
             data = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]
         else:
             data = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]
-        predicted_labels = self.get_classifier().predict(data, metadata=self.stage_data)
+        predicted_probabilities = self.get_classifier().predict(data, metadata=self.stage_data)
         if self.output_columns is not None:
             data = data[self.output_columns]
         if self.new_columns is not None and len(self.new_columns) != 0:
             for key, val in self.new_columns.items():
-                data[key] = [val] * len(predicted_labels)
-        data['predicted_labels'] = predicted_labels
+                data[key] = [val] * len(predicted_probabilities)
+        data['predicted_probabilities'] = predicted_probabilities
         self.result = data
         self.stage_data[StageData.Keys.PREDICTION_RESULT_DF.value] = self.result

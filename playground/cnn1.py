@@ -97,23 +97,7 @@ def main():
         predictions = model.predict(Xeval)
         print(f'predictions = {predictions}')
         # Y_pred = list(map(bool, list(predictions)))
-        Y_pred = list(list(predictions > 0.3))
-        print(f'Y_pred = {Y_pred}')
-        evaluate(Y_eval, Y_pred)
-
-        # Calculate the ROC curve
-        fpr, tpr, thresholds = roc_curve(Y_eval, predictions)
-        roc_auc = auc(fpr, tpr)
-
-        # Plot ROC curve
-        plt.figure(figsize=(8, 6))
-        plt.plot(fpr, tpr, color='blue', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
-        plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver Operating Characteristic (ROC) Curve')
-        plt.legend(loc='lower right')
-        plt.show()
+        evaluate(Y_eval, predictions)
 
 
 def get_x_y(max_length, release, to_lowercase, embedding_model):
