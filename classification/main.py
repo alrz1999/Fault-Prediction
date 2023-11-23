@@ -211,6 +211,24 @@ def keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_impo
     )
 
 
+def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 400
+    to_lowercase = False
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=KerasDenseClassifierWithExternalEmbedding,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=4
+    )
+
+
 def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 50
 
@@ -250,24 +268,6 @@ def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_import
         batch_size=64,
         epochs=4,
         to_lowercase=to_lowercase
-    )
-
-
-def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 400
-    to_lowercase = False
-
-    classify(
-        train_dataset_name=train_dataset_name,
-        train_dataset_importer=train_dataset_importer,
-        eval_dataset_importers=eval_dataset_importers,
-        classifier_cls=KerasDenseClassifierWithExternalEmbedding,
-        embedding_cls=GensimWord2VecModel,
-        token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        embedding_dim=50,
-        max_seq_len=max_seq_len,
-        batch_size=32,
-        epochs=4
     )
 
 
