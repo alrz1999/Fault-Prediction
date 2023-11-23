@@ -244,3 +244,30 @@ class KerasLSTMClassifier(KerasClassifier):
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
         return model
+
+
+class KerasBiLSTMClassifier(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+        model = Sequential()
+
+        model.add(
+            layers.Embedding(
+                vocab_size, embedding_dim,
+                # weights=[embedding_matrix] if embedding_matrix is not None else None,
+                weights=[embedding_matrix],
+                input_length=max_seq_len,
+                trainable=True
+            )
+        )
+
+        # Define parameter
+        n_lstm = 128
+        drop_lstm = 0.2
+        model.add(layers.Bidirectional(layers.LSTM(n_lstm, return_sequences=False)))
+        model.add(layers.Dropout(drop_lstm))
+
+        model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
+        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
+        return model

@@ -4,7 +4,7 @@ from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project, AggregatedDatasetImporter
 from classification.keras_classifiers.classifiers import KerasClassifier, KerasDenseClassifier, \
     KerasDenseClassifierWithEmbedding, KerasDenseClassifierWithExternalEmbedding, KerasCNNClassifierWithEmbedding, \
-    KerasCNNClassifier, KerasLSTMClassifier
+    KerasCNNClassifier, KerasLSTMClassifier, KerasBiLSTMClassifier
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
@@ -289,6 +289,24 @@ def keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_datas
     )
 
 
+def keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 100
+    to_lowercase = False
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=KerasBiLSTMClassifier,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=4
+    )
+
+
 def generate_line_level_dfs():
     for project_name in Project.releases_by_project_name.keys():
         project = Project(
@@ -340,4 +358,5 @@ if __name__ == '__main__':
     # keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
