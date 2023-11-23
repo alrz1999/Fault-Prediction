@@ -1,10 +1,10 @@
 import enum
 
-from classification.cnn.cnn_baseline import KerasCNNClassifier
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project, AggregatedDatasetImporter
-from classification.custom.custom_model import KerasClassifier, KerasCountVectorizerAndDenseLayer, \
-    KerasTokenizerAndDenseLayer, SimpleKerasClassifierWithExternalEmbedding
+from classification.keras_classifiers.classifiers import KerasClassifier, KerasDenseClassifier, \
+    KerasDenseClassifierWithEmbedding, KerasDenseClassifierWithExternalEmbedding, KerasCNNClassifierWithEmbedding, \
+    KerasCNNClassifier
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
@@ -173,16 +173,18 @@ def bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_impo
     )
 
 
-def keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+def keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 50
     to_lowercase = False
     classify(
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
-        classifier_cls=KerasCountVectorizerAndDenseLayer,
+        classifier_cls=KerasDenseClassifier,
         embedding_cls=SklearnCountTokenizer,
+        # embedding_cls=KerasTextVectorizer,
         token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
+        # token_extractor=ASTTokenizer(False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=64,
@@ -191,14 +193,14 @@ def keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_imp
     )
 
 
-def keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+def keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 600
     to_lowercase = False
     classify(
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
-        classifier_cls=KerasTokenizerAndDenseLayer,
+        classifier_cls=KerasDenseClassifierWithEmbedding,
         embedding_cls=KerasTokenizer,
         token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
         embedding_dim=250,
@@ -209,14 +211,14 @@ def keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, 
     )
 
 
-def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = None
+def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 50
 
     classify(
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
-        classifier_cls=KerasClassifier,
+        classifier_cls=KerasCNNClassifier,
         embedding_cls=GensimWord2VecModel,
         token_extractor=ASTTokenizer(False),
         # token_extractor=ASTTokenizer(True),
@@ -229,7 +231,7 @@ def keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_im
     )
 
 
-def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 150
     to_lowercase = False
     token_extractor = CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len)
@@ -240,7 +242,7 @@ def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_datase
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
-        classifier_cls=KerasCNNClassifier,
+        classifier_cls=KerasCNNClassifierWithEmbedding,
         embedding_cls=GensimWord2VecModel,
         token_extractor=token_extractor,
         embedding_dim=50,
@@ -251,7 +253,7 @@ def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_datase
     )
 
 
-def simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 400
     to_lowercase = False
 
@@ -259,7 +261,7 @@ def simple_keras_classifier_with_external_embedding(train_dataset_name, train_da
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
-        classifier_cls=SimpleKerasClassifierWithExternalEmbedding,
+        classifier_cls=KerasDenseClassifierWithExternalEmbedding,
         embedding_cls=GensimWord2VecModel,
         token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
         embedding_dim=50,
@@ -314,9 +316,9 @@ if __name__ == '__main__':
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
 
     # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_count_vectorizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_tokenizer_and_dense_layer(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # simple_keras_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
