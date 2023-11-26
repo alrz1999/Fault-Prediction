@@ -5,6 +5,7 @@ import tensorflow as tf
 from imblearn.over_sampling import SMOTE
 from keras import layers, Sequential
 from keras.src.utils import pad_sequences
+from sklearn.model_selection import KFold
 
 from classification.models import ClassifierModel
 from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR, KERAS_CNN_SAVE_PREDICTION_DIR
@@ -46,22 +47,52 @@ class KerasClassifier(ClassifierModel):
         sm = SMOTE(random_state=42)
         X, Y = sm.fit_resample(X, Y)
 
+        cls.k_fold_cross_validation(X, Y, batch_size, embedding_dim, embedding_matrix, epochs, max_seq_len, vocab_size)
+
         model = cls.build_model(
             vocab_size=vocab_size,
             embedding_dim=embedding_dim,
             embedding_matrix=embedding_matrix,
             max_seq_len=max_seq_len
         )
+
         history = model.fit(
             X, Y,
             epochs=epochs,
             batch_size=batch_size,
-            validation_split=0.2
         )
         cls.plot_history(history)
         loss, accuracy = model.evaluate(X, Y, verbose=False)
         print("Training Accuracy: {:.4f}".format(accuracy))
         return cls(model, embedding_model)
+
+    @classmethod
+    def k_fold_cross_validation(cls, X, Y, batch_size, embedding_dim, embedding_matrix, epochs, max_seq_len,
+                                vocab_size):
+        kf = KFold(n_splits=10)
+        validation_scores = []
+        for train_index, test_index in kf.split(X):
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = Y[train_index], Y[test_index]
+
+            model = cls.build_model(
+                vocab_size=vocab_size,
+                embedding_dim=embedding_dim,
+                embedding_matrix=embedding_matrix,
+                max_seq_len=max_seq_len
+            )
+            model.fit(
+                X_train, y_train,
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_data=(X_test, y_test)
+
+            )
+            validation_score = model.evaluate(X_test, y_test)
+            validation_scores.append(validation_score)
+        # get average score
+        validation_score = np.average(validation_scores)
+        print(f'validation_score = {validation_score}')
 
     def predict(self, df, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
