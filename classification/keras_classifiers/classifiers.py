@@ -18,7 +18,7 @@ class KerasClassifier(ClassifierModel):
         self.embedding_model = embedding_model
 
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         raise NotImplementedError()
 
     @classmethod
@@ -54,7 +54,8 @@ class KerasClassifier(ClassifierModel):
             vocab_size=vocab_size,
             embedding_dim=embedding_dim,
             embedding_matrix=embedding_matrix,
-            max_seq_len=max_seq_len
+            max_seq_len=max_seq_len,
+            show_summary=True
         )
 
         history = model.fit(
@@ -80,14 +81,15 @@ class KerasClassifier(ClassifierModel):
                 vocab_size=vocab_size,
                 embedding_dim=embedding_dim,
                 embedding_matrix=embedding_matrix,
-                max_seq_len=max_seq_len
+                max_seq_len=max_seq_len,
+                show_summary=False
             )
             model.fit(
                 X_train, y_train,
                 epochs=epochs,
                 batch_size=batch_size,
-                validation_data=(X_test, y_test)
-
+                validation_data=(X_test, y_test),
+                verbose=0
             )
             validation_score = model.evaluate(X_test, y_test)
             validation_scores.append(validation_score)
@@ -108,7 +110,7 @@ class KerasClassifier(ClassifierModel):
 
 class KerasDenseClassifier(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
         model.add(layers.Dense(512, input_dim=embedding_dim, activation='relu'))
         model.add(layers.Dropout(0.2))
@@ -125,7 +127,7 @@ class KerasDenseClassifier(KerasClassifier):
 
 class KerasDenseClassifierWithEmbedding(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
         model.add(
             layers.Embedding(
@@ -146,7 +148,7 @@ class KerasDenseClassifierWithEmbedding(KerasClassifier):
 
 class KerasDenseClassifierWithExternalEmbedding(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
         model.add(
             layers.Embedding(
@@ -181,7 +183,7 @@ class KerasDenseClassifierWithExternalEmbedding(KerasClassifier):
 
 class KerasCNNClassifierWithEmbedding(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
 
         model.add(
@@ -242,7 +244,7 @@ class KerasCNNClassifierWithEmbedding(KerasClassifier):
 
 class KerasCNNClassifier(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         inputs = tf.keras.Input(shape=(None,), dtype="int64")
         x = layers.Embedding(vocab_size, embedding_dim)(inputs)
         x = layers.Dropout(0.5)(x)
@@ -253,7 +255,8 @@ class KerasCNNClassifier(KerasClassifier):
         predictions = layers.Dense(1, activation="sigmoid", name="predictions")(x)
         model = tf.keras.Model(inputs, predictions)
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.summary()
+        if kwargs.get('show_summary'):
+            model.summary()
         return model
 
     @classmethod
@@ -263,7 +266,7 @@ class KerasCNNClassifier(KerasClassifier):
 
 class KerasLSTMClassifier(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         inputs = tf.keras.Input(shape=(None,), dtype="int64")
         x = layers.Embedding(vocab_size, embedding_dim)(inputs)
         x = layers.LSTM(64)(x)
@@ -280,7 +283,7 @@ class KerasLSTMClassifier(KerasClassifier):
 
 class KerasBiLSTMClassifier(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
 
         model.add(
@@ -307,7 +310,7 @@ class KerasBiLSTMClassifier(KerasClassifier):
 
 class KerasGRUClassifier(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
 
         model.add(
@@ -332,7 +335,7 @@ class KerasGRUClassifier(KerasClassifier):
 
 class KerasCNNandLSTMClassifier(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
 
         model.add(
@@ -359,7 +362,7 @@ class KerasHANClassifier(KerasClassifier):
     max_sent_num = 50
 
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         l2_reg = None
 
         embedding_layer = layers.Embedding(
