@@ -7,6 +7,7 @@ from keras import layers, Sequential
 from keras.src.utils import pad_sequences
 from sklearn.model_selection import KFold
 
+from classification.keras_classifiers.attention_with_context import AttentionWithContext
 from classification.models import ClassifierModel
 from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR, KERAS_CNN_SAVE_PREDICTION_DIR
 
@@ -352,3 +353,106 @@ class KerasCNNandLSTMClassifier(KerasClassifier):
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
         return model
+
+
+class KerasHANClassifier(KerasClassifier):
+    max_sent_num = 50
+
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len):
+        l2_reg = None
+
+        embedding_layer = layers.Embedding(
+            vocab_size, embedding_dim,
+            # weights=[embedding_matrix] if embedding_matrix is not None else None,
+            weights=[embedding_matrix],
+            input_length=max_seq_len,
+            trainable=False
+        )
+        # Words level attention model
+        word_input = layers.Input(shape=(max_seq_len,), dtype='float32')
+        word_sequences = embedding_layer(word_input)
+        word_lstm = layers.Bidirectional(layers.LSTM(15, return_sequences=True, kernel_regularizer=l2_reg))(
+            word_sequences)
+        word_dense = layers.TimeDistributed(layers.Dense(20, kernel_regularizer=l2_reg))(word_lstm)
+        word_att = AttentionWithContext()(word_dense)
+        wordEncoder = tf.keras.Model(word_input, word_att)
+        # Sentence level attention model
+        sent_input = layers.Input(shape=(KerasHANClassifier.max_sent_num, max_seq_len), dtype='float32')
+        sent_encoder = layers.TimeDistributed(wordEncoder)(sent_input)
+        sent_lstm = layers.Bidirectional(layers.LSTM(15, return_sequences=True, kernel_regularizer=l2_reg))(
+            sent_encoder)
+        sent_dense = layers.TimeDistributed(layers.Dense(20, kernel_regularizer=l2_reg))(sent_lstm)
+        sent_att = layers.Dropout(0.5)(AttentionWithContext()(sent_dense))
+        preds = layers.Dense(1, activation='sigmoid')(sent_att)
+        model = tf.keras.Model(sent_input, preds)
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        return model
+
+    @classmethod
+    def train(cls, df, dataset_name, metadata=None):
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        if max_seq_len is None:
+            raise Exception("max_seq_len can not be none in this model")
+
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        codes, labels = df['text'], df['label']
+
+        codes_3d = np.zeros((len(codes), KerasHANClassifier.max_sent_num, max_seq_len), dtype='int32')
+        for file_idx, file_code in enumerate(codes):
+            for line_idx, line in enumerate(file_code.splitlines()):
+                if line_idx >= KerasHANClassifier.max_sent_num:
+                    continue
+
+                X = embedding_model.text_to_indexes([line])[0]
+                X = pad_sequences([X], padding='post', maxlen=max_seq_len)
+                codes_3d[file_idx, line_idx, :] = X
+
+        Y = np.array([1 if label == True else 0 for label in labels])
+
+        sm = SMOTE(random_state=42)
+        codes_3d, Y = sm.fit_resample(codes_3d, Y)
+
+        model = cls.build_model(
+            vocab_size=vocab_size,
+            embedding_dim=embedding_dim,
+            embedding_matrix=embedding_matrix,
+            max_seq_len=max_seq_len
+        )
+        history = model.fit(
+            codes_3d, Y,
+            epochs=epochs,
+            batch_size=batch_size,
+            validation_split=0.2
+        )
+        cls.plot_history(history)
+        loss, accuracy = model.evaluate(codes_3d, Y, verbose=False)
+        print("Training Accuracy: {:.4f}".format(accuracy))
+        return cls(model, embedding_model)
+
+    def predict(self, df, metadata=None):
+        max_seq_len = metadata.get('max_seq_len')
+
+        codes, labels = df['text'], df['label']
+
+        codes_3d = np.zeros((len(codes), KerasHANClassifier.max_sent_num, max_seq_len), dtype='int32')
+        for file_idx, file_code in enumerate(codes):
+            for line_idx, line in enumerate(file_code.splitlines()):
+                if line_idx >= KerasHANClassifier.max_sent_num:
+                    continue
+
+                X = self.embedding_model.text_to_indexes([line])[0]
+                X = pad_sequences([X], padding='post', maxlen=max_seq_len)
+                codes_3d[file_idx, line_idx, :] = X
+
+        return self.model.predict(codes_3d)
