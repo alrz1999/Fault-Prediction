@@ -48,7 +48,8 @@ class KerasClassifier(ClassifierModel):
         sm = SMOTE(random_state=42)
         X, Y = sm.fit_resample(X, Y)
 
-        cls.k_fold_cross_validation(X, Y, batch_size, embedding_dim, embedding_matrix, epochs, max_seq_len, vocab_size)
+        if metadata.get('perform_k_fold_cross_validation'):
+            cls.k_fold_cross_validation(X, Y, batch_size, embedding_dim, embedding_matrix, epochs, max_seq_len, vocab_size)
 
         model = cls.build_model(
             vocab_size=vocab_size,

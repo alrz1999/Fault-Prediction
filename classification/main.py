@@ -114,7 +114,8 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'epochs': epochs,
         'token_extractor': token_extractor,
         'vocab_size': vocab_size,
-        'to_lowercase': to_lowercase
+        'to_lowercase': to_lowercase,
+        'perform_k_fold_cross_validation': False
     })
 
     pipeline_data = get_data_importer_pipeline_data(
@@ -397,14 +398,37 @@ def get_cross_project_dataset():
     return 'cross-project', AggregatedDatasetImporter(train_releases), eval_releases
 
 
+def get_cross_project_2_dataset():
+    train_releases = []
+    eval_releases = []
+
+    train_project = Project(
+        name='activemq',
+        line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
+        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+    )
+    train_releases.append(train_project.get_train_release())
+
+    for project_name in Project.releases_by_project_name.keys():
+        if project_name == train_project.name:
+            continue
+        project = Project(
+            name=project_name,
+            line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
+            file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+        )
+        eval_releases.append(project.get_validation_release())
+    return 'cross-project', AggregatedDatasetImporter(train_releases), eval_releases
+
+
 training_type = TrainingType.FILE_LEVEL
 dataset_type = DatasetType.LINE_LEVEL
 
 if __name__ == '__main__':
     # generate_line_level_dfs()
 
-    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
-    # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
+    # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
+    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
 
     # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
