@@ -4,8 +4,10 @@ import numpy as np
 import tensorflow as tf
 from imblearn.over_sampling import SMOTE
 from keras import layers, Sequential
+from keras.src.optimizers import Adam
 from keras.src.utils import pad_sequences
 from sklearn.model_selection import KFold
+from sklearn.utils import compute_class_weight
 
 from classification.keras_classifiers.attention_with_context import AttentionWithContext
 from classification.models import ClassifierModel
@@ -49,7 +51,8 @@ class KerasClassifier(ClassifierModel):
         X, Y = sm.fit_resample(X, Y)
 
         if metadata.get('perform_k_fold_cross_validation'):
-            cls.k_fold_cross_validation(X, Y, batch_size, embedding_dim, embedding_matrix, epochs, max_seq_len, vocab_size)
+            cls.k_fold_cross_validation(X, Y, batch_size, embedding_dim, embedding_matrix, epochs, max_seq_len,
+                                        vocab_size)
 
         model = cls.build_model(
             vocab_size=vocab_size,
@@ -59,10 +62,15 @@ class KerasClassifier(ClassifierModel):
             show_summary=True
         )
 
+        class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y), y=Y)
+        class_weight_dict = dict(enumerate(class_weights))
+        print(f'class_weight_dict = {class_weight_dict}')
+
         history = model.fit(
             X, Y,
             epochs=epochs,
             batch_size=batch_size,
+            class_weight=class_weight_dict
         )
         cls.plot_history(history)
         loss, accuracy = model.evaluate(X, Y, verbose=False)
@@ -364,33 +372,55 @@ class KerasHANClassifier(KerasClassifier):
 
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
-        l2_reg = None
+        learning_rate = kwargs.get('learning_rate', 0.001)
+        dropout_ratio = kwargs.get('dropout_ratio', 0.5)
+        print(f"learning_rate = {learning_rate}")
+        print(f"dropout_ratio = {dropout_ratio}")
+        token_encoder_bi_gru_hidden_cells_count = 32
+        token_attention_mlp_hidden_cells_count = 64
+        line_encoder_bi_gru_hidden_cells_count = 32
+        line_attention_mlp_hidden_cells_count = 64
 
+        l2_reg = None
+        optimizer = Adam(learning_rate=learning_rate)
         embedding_layer = layers.Embedding(
             vocab_size, embedding_dim,
-            # weights=[embedding_matrix] if embedding_matrix is not None else None,
             weights=[embedding_matrix],
             input_length=max_seq_len,
             trainable=False
         )
-        # Words level attention model
-        word_input = layers.Input(shape=(max_seq_len,), dtype='float32')
-        word_sequences = embedding_layer(word_input)
-        word_lstm = layers.Bidirectional(layers.LSTM(15, return_sequences=True, kernel_regularizer=l2_reg))(
-            word_sequences)
-        word_dense = layers.TimeDistributed(layers.Dense(20, kernel_regularizer=l2_reg))(word_lstm)
-        word_att = AttentionWithContext()(word_dense)
-        wordEncoder = tf.keras.Model(word_input, word_att)
-        # Sentence level attention model
-        sent_input = layers.Input(shape=(KerasHANClassifier.max_sent_num, max_seq_len), dtype='float32')
-        sent_encoder = layers.TimeDistributed(wordEncoder)(sent_input)
-        sent_lstm = layers.Bidirectional(layers.LSTM(15, return_sequences=True, kernel_regularizer=l2_reg))(
-            sent_encoder)
-        sent_dense = layers.TimeDistributed(layers.Dense(20, kernel_regularizer=l2_reg))(sent_lstm)
-        sent_att = layers.Dropout(0.5)(AttentionWithContext()(sent_dense))
-        preds = layers.Dense(1, activation='sigmoid')(sent_att)
-        model = tf.keras.Model(sent_input, preds)
-        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+        # Token level attention model
+        token_input = layers.Input(shape=(max_seq_len,), dtype='float32')
+        token_sequences = embedding_layer(token_input)
+        token_gru = layers.Bidirectional(
+            layers.GRU(
+                units=token_encoder_bi_gru_hidden_cells_count,
+                return_sequences=True,
+                kernel_regularizer=l2_reg
+            )
+        )(token_sequences)
+        # normalization ?
+        token_dense = layers.TimeDistributed(
+            layers.Dense(token_attention_mlp_hidden_cells_count, kernel_regularizer=l2_reg))(token_gru)
+        token_attention = AttentionWithContext()(token_dense)
+        token_attention_model = tf.keras.Model(token_input, token_attention)
+
+        # Line level attention model
+        line_input = layers.Input(shape=(KerasHANClassifier.max_sent_num, max_seq_len), dtype='float32')
+        line_encoder = layers.TimeDistributed(token_attention_model)(line_input)
+        line_gru = layers.Bidirectional(
+            layers.GRU(
+                units=line_encoder_bi_gru_hidden_cells_count,
+                return_sequences=True,
+                kernel_regularizer=l2_reg)
+        )(line_encoder)
+        line_dense = layers.TimeDistributed(
+            layers.Dense(line_attention_mlp_hidden_cells_count, kernel_regularizer=l2_reg))(line_gru)
+        line_attention = layers.Dropout(dropout_ratio)(AttentionWithContext()(line_dense))
+        preds = layers.Dense(1, activation='sigmoid')(line_attention)
+        model = tf.keras.Model(line_input, preds)
+        model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
         return model
 
     @classmethod
@@ -400,6 +430,9 @@ class KerasHANClassifier(KerasClassifier):
         epochs = metadata.get('epochs')
         max_seq_len = metadata.get('max_seq_len')
         embedding_matrix = metadata.get('embedding_matrix')
+        learning_rate = metadata.get('learning_rate')
+        dropout_ratio = metadata.get('dropout_ratio')
+
         if max_seq_len is None:
             raise Exception("max_seq_len can not be none in this model")
 
@@ -431,7 +464,9 @@ class KerasHANClassifier(KerasClassifier):
             vocab_size=vocab_size,
             embedding_dim=embedding_dim,
             embedding_matrix=embedding_matrix,
-            max_seq_len=max_seq_len
+            max_seq_len=max_seq_len,
+            learning_rate=learning_rate,
+            dropout_ratio=dropout_ratio
         )
         history = model.fit(
             codes_3d, Y,

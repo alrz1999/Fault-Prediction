@@ -115,7 +115,9 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'token_extractor': token_extractor,
         'vocab_size': vocab_size,
         'to_lowercase': to_lowercase,
-        'perform_k_fold_cross_validation': False
+        'perform_k_fold_cross_validation': False,
+        'learning_rate': 0.001,
+        'dropout_ratio': 0.5
     })
 
     pipeline_data = get_data_importer_pipeline_data(
@@ -154,8 +156,8 @@ def mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_impo
         token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
         embedding_dim=50,
         max_seq_len=max_seq_len,
-        batch_size=64,
-        epochs=8,
+        batch_size=32,
+        epochs=10,
         to_lowercase=to_lowercase
     )
 
@@ -170,8 +172,8 @@ def bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_impo
         token_extractor=None,
         embedding_dim=50,
         max_seq_len=None,
-        batch_size=64,
-        epochs=8,
+        batch_size=32,
+        epochs=10,
     )
 
 
@@ -189,8 +191,8 @@ def keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_data
         # token_extractor=ASTTokenizer(False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
-        batch_size=64,
-        epochs=8,
+        batch_size=32,
+        epochs=10,
         to_lowercase=to_lowercase
     )
 
@@ -205,10 +207,10 @@ def keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_impo
         classifier_cls=KerasDenseClassifierWithEmbedding,
         embedding_cls=KerasTokenizer,
         token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
-        embedding_dim=250,
+        embedding_dim=50,
         max_seq_len=max_seq_len,
-        batch_size=64,
-        epochs=8,
+        batch_size=32,
+        epochs=10,
         to_lowercase=to_lowercase
     )
 
@@ -227,7 +229,7 @@ def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dat
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=4
+        epochs=10
     )
 
 
@@ -244,7 +246,7 @@ def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_datase
         # token_extractor=ASTTokenizer(True),
         embedding_dim=50,
         max_seq_len=max_seq_len,
-        batch_size=64,
+        batch_size=32,
         epochs=10,
         vocab_size=10000,
         to_lowercase=False
@@ -267,8 +269,8 @@ def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_import
         token_extractor=token_extractor,
         embedding_dim=50,
         max_seq_len=max_seq_len,
-        batch_size=64,
-        epochs=4,
+        batch_size=32,
+        epochs=10,
         to_lowercase=to_lowercase
     )
 
@@ -287,7 +289,7 @@ def keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_datas
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=4
+        epochs=10
     )
 
 
@@ -305,7 +307,7 @@ def keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dat
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=4
+        epochs=10
     )
 
 
@@ -323,7 +325,7 @@ def keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_datase
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=4
+        epochs=10
     )
 
 
@@ -341,7 +343,7 @@ def keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_d
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=4
+        epochs=10
     )
 
 
@@ -359,7 +361,7 @@ def keras_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=4
+        epochs=10
     )
 
 
@@ -428,7 +430,8 @@ if __name__ == '__main__':
     # generate_line_level_dfs()
 
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
-    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
+    # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
+    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_2_dataset()
 
     # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)

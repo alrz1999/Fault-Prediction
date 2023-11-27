@@ -81,11 +81,15 @@ class GensimWord2VecModel(EmbeddingModel):
     def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
         embedding_matrix = np.zeros((vocab_size, embedding_dim))
 
+        present_words = 0
         for word in self.model.wv.index_to_key:
             if word in word_index:
+                present_words += 1
                 vec = self.model.wv[word]
                 embedding_matrix[word_index[word]] = np.array(vec, dtype=np.float32)[:embedding_dim]
-
+        absent_words = len(word_index) - present_words
+        print('Total absent words are', absent_words, 'which is', "%0.2f" % (absent_words * 100 / len(word_index)),
+              '% of total words')
         return embedding_matrix
 
     def get_vocab_size(self):
@@ -105,9 +109,11 @@ class KerasTokenizer(EmbeddingModel):
         embedding_dim = metadata.get('embedding_dim')
         token_extractor: TokenExtractor = metadata.get('token_extractor')
         to_lowercase = metadata.get('to_lowercase')
+        num_words = metadata.get('num_words')
+        oov_token = metadata.get('oov_token')
 
         tokens = [token_extractor.extract_tokens(text) for text in texts]
-        tokenizer = Tokenizer(lower=to_lowercase)
+        tokenizer = Tokenizer(lower=to_lowercase, num_words=num_words, oov_token=oov_token)
         tokenizer.fit_on_texts(tokens)
         output_model = cls(tokenizer, embedding_dim)
         print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
