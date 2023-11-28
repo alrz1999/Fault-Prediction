@@ -234,28 +234,28 @@ def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dat
 
 
 def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 50
-
+    max_seq_len = 100
+    to_lowercase = True
     classify(
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=KerasCNNClassifier,
         embedding_cls=GensimWord2VecModel,
-        token_extractor=ASTTokenizer(False),
-        # token_extractor=ASTTokenizer(True),
+        # token_extractor=ASTTokenizer(False),
+        token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=10,
         vocab_size=10000,
-        to_lowercase=False
+        to_lowercase=to_lowercase
     )
 
 
 def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 150
-    to_lowercase = False
+    max_seq_len = 50
+    to_lowercase = True
     token_extractor = CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len)
     # token_extractor = ASTTokenizer(cross_project=False)
     # token_extractor = ASTExtractor()
@@ -271,13 +271,14 @@ def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_import
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=10,
+        vocab_size=10000,
         to_lowercase=to_lowercase
     )
 
 
 def keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 50
-    to_lowercase = False
+    max_seq_len = 100
+    to_lowercase = True
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -286,16 +287,18 @@ def keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_datas
         classifier_cls=KerasLSTMClassifier,
         embedding_cls=GensimWord2VecModel,
         token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
+        # token_extractor=ASTTokenizer(),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=10
+        epochs=10,
+        to_lowercase=to_lowercase
     )
 
 
 def keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 100
-    to_lowercase = False
+    to_lowercase = True
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -331,7 +334,7 @@ def keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_datase
 
 def keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 100
-    to_lowercase = False
+    to_lowercase = True
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -349,7 +352,7 @@ def keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_d
 
 def keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 100
-    to_lowercase = False
+    to_lowercase = True
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -429,19 +432,19 @@ dataset_type = DatasetType.LINE_LEVEL
 if __name__ == '__main__':
     # generate_line_level_dfs()
 
-    # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
+    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
-    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_2_dataset()
+    # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_2_dataset()
 
     # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)

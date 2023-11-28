@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from imblearn.over_sampling import SMOTE
 from keras import layers, Sequential
+from keras.src import regularizers
 from keras.src.optimizers import Adam
 from keras.src.utils import pad_sequences
 from sklearn.model_selection import KFold
@@ -93,12 +94,18 @@ class KerasClassifier(ClassifierModel):
                 max_seq_len=max_seq_len,
                 show_summary=False
             )
+
+            class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y), y=Y)
+            class_weight_dict = dict(enumerate(class_weights))
+            print(f'class_weight_dict = {class_weight_dict}')
+
             model.fit(
                 X_train, y_train,
                 epochs=epochs,
                 batch_size=batch_size,
                 validation_data=(X_test, y_test),
-                verbose=0
+                verbose=0,
+                class_weight=class_weight_dict
             )
             validation_score = model.evaluate(X_test, y_test)
             validation_scores.append(validation_score)
@@ -198,50 +205,17 @@ class KerasCNNClassifierWithEmbedding(KerasClassifier):
         model.add(
             layers.Embedding(
                 vocab_size, embedding_dim,
-                # weights=[embedding_matrix] if embedding_matrix is not None else None,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
                 trainable=True
             )
         )
 
-        # model.add(layers.Bidirectional(layers.GRU(64, return_sequences=True)))
-        # model.add(layers.Bidirectional(layers.GRU(64)))
-
-        # model.add(layers.Dropout(0.2))
-
-        # Modified CNN layers similar to the provided architecture.
-        # model.add(layers.Conv1D(100, 5, padding="same", activation="relu", strides=1))
-        model.add(layers.Conv1D(100, 5, padding="same", activation="relu"))
-        # model.add(layers.MaxPooling1D())
-        # model.add(layers.Dropout(0.2))
-        # model.add(layers.Flatten())
-        # model.add(layers.Dropout(0.2))
-
-        # model.add(layers.Dense(8, activation="relu"))
-        # model.add(layers.Flatten())
-        # model.add(layers.Dropout(0.2))
-
-        # model.add(layers.Dense(1024, activation="relu"))
-        # model.add(layers.Dropout(0.2))
-
-        # Add another Conv1D layer for complexity
-        # model.add(layers.Conv1D(100, 5, padding="same", activation="relu"))
-        # model.add(layers.MaxPooling1D())
-        # model.add(layers.Dropout(0.2))
-
+        model.add(layers.Conv1D(100, 4, padding="same", activation="relu"))
         model.add(layers.GlobalMaxPool1D())
-        # model.add(layers.Dropout(0.1))
-        # Vanilla hidden layer:
-        # model.add(layers.Conv1D(filters=4, kernel_size=5, padding='same', activation='relu'))
-        # model.add(layers.Dropout(0.5))
-        # model.add(layers.Dense(16, activation="relu"))
-        # model.add(layers.Dropout(0.5))
-        # model.add(layers.GRU(2))
-        # Project onto a single unit output layer, and squash it with a sigmoid:
+        model.add(layers.Dropout(0.5))
+        model.add(layers.Dense(100, activation="relu"))
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
-
-        # Compile the model with binary crossentropy loss and an adam optimizer.
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
         return model
@@ -256,17 +230,35 @@ class KerasCNNClassifier(KerasClassifier):
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         inputs = tf.keras.Input(shape=(None,), dtype="int64")
         x = layers.Embedding(vocab_size, embedding_dim)(inputs)
-        x = layers.Dropout(0.5)(x)
-        x = layers.Conv1D(128, 7, padding="valid", activation="relu", strides=3)(x)
+        x = layers.Conv1D(100, 4, padding="same", activation="relu")(x)
         x = layers.GlobalMaxPooling1D()(x)
-        x = layers.Dense(32, activation="relu")(x)
         x = layers.Dropout(0.5)(x)
+        x = layers.Dense(100, activation="relu")(x)
         predictions = layers.Dense(1, activation="sigmoid", name="predictions")(x)
         model = tf.keras.Model(inputs, predictions)
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         if kwargs.get('show_summary'):
             model.summary()
         return model
+
+    # @classmethod
+    # def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+    #     model = Sequential()
+    #     word_embeddings = layers.Embedding(vocab_size, embedding_dim, input_length=max_seq_len)
+    #     model.add(word_embeddings)
+    #     # Add a dimension at index 1
+    #     model.add(layers.Reshape((max_seq_len, embedding_dim, 1)))
+    #     model.add(layers.Conv2D(100, (5, embedding_dim), padding="valid", activation="relu"))
+    #     # Squeeze operation (remove a dimension)
+    #     model.add(layers.Lambda(lambda x: tf.squeeze(x, axis=-2)))
+    #     model.add(layers.MaxPooling1D(pool_size=model.output_shape[1]))
+    #     model.add(layers.Flatten())
+    #     model.add(layers.Dropout(0.5))
+    #     model.add(layers.Dense(1, activation='sigmoid', name="predictions"))
+    #     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    #     if kwargs.get('show_summary'):
+    #         model.summary()
+    #     return model
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
@@ -277,7 +269,7 @@ class KerasLSTMClassifier(KerasClassifier):
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         inputs = tf.keras.Input(shape=(None,), dtype="int64")
-        x = layers.Embedding(vocab_size, embedding_dim)(inputs)
+        x = layers.Embedding(vocab_size, embedding_dim, weights=[embedding_matrix])(inputs)
         x = layers.LSTM(64)(x)
         x = layers.Dense(256, name='FC1')(x)
         x = layers.Activation('relu')(x)
@@ -298,7 +290,6 @@ class KerasBiLSTMClassifier(KerasClassifier):
         model.add(
             layers.Embedding(
                 vocab_size, embedding_dim,
-                # weights=[embedding_matrix] if embedding_matrix is not None else None,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
                 trainable=True
@@ -310,6 +301,7 @@ class KerasBiLSTMClassifier(KerasClassifier):
         drop_lstm = 0.2
         model.add(layers.Bidirectional(layers.LSTM(n_lstm, return_sequences=False)))
         model.add(layers.Dropout(drop_lstm))
+        model.add(layers.Dense(16, name='FC1'))
 
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
@@ -325,7 +317,6 @@ class KerasGRUClassifier(KerasClassifier):
         model.add(
             layers.Embedding(
                 vocab_size, embedding_dim,
-                # weights=[embedding_matrix] if embedding_matrix is not None else None,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
                 trainable=True
@@ -350,7 +341,6 @@ class KerasCNNandLSTMClassifier(KerasClassifier):
         model.add(
             layers.Embedding(
                 vocab_size, embedding_dim,
-                # weights=[embedding_matrix] if embedding_matrix is not None else None,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
                 trainable=True
@@ -359,7 +349,9 @@ class KerasCNNandLSTMClassifier(KerasClassifier):
 
         model.add(layers.Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
         model.add(layers.MaxPooling1D(pool_size=2))
-        model.add(layers.LSTM(100))
+        # model.add(layers.Bidirectional(layers.GRU(100, return_sequences=False)))
+
+        model.add(layers.GRU(100))
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
 
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
@@ -381,6 +373,8 @@ class KerasHANClassifier(KerasClassifier):
         line_encoder_bi_gru_hidden_cells_count = 32
         line_attention_mlp_hidden_cells_count = 64
 
+        REG_PARAM = 1e-13
+        l2_reg = regularizers.l2(REG_PARAM)
         l2_reg = None
         optimizer = Adam(learning_rate=learning_rate)
         embedding_layer = layers.Embedding(
@@ -400,7 +394,8 @@ class KerasHANClassifier(KerasClassifier):
                 kernel_regularizer=l2_reg
             )
         )(token_sequences)
-        # normalization ?
+        token_gru = layers.TimeDistributed(layers.LayerNormalization())(token_gru)
+        # token_gru = layers.LayerNormalization()(token_gru)
         token_dense = layers.TimeDistributed(
             layers.Dense(token_attention_mlp_hidden_cells_count, kernel_regularizer=l2_reg))(token_gru)
         token_attention = AttentionWithContext()(token_dense)
@@ -415,6 +410,8 @@ class KerasHANClassifier(KerasClassifier):
                 return_sequences=True,
                 kernel_regularizer=l2_reg)
         )(line_encoder)
+        line_gru = layers.TimeDistributed(layers.LayerNormalization())(line_gru)
+        # line_gru = layers.LayerNormalization()(line_gru)
         line_dense = layers.TimeDistributed(
             layers.Dense(line_attention_mlp_hidden_cells_count, kernel_regularizer=l2_reg))(line_gru)
         line_attention = layers.Dropout(dropout_ratio)(AttentionWithContext()(line_dense))
@@ -457,8 +454,9 @@ class KerasHANClassifier(KerasClassifier):
 
         Y = np.array([1 if label == True else 0 for label in labels])
 
-        sm = SMOTE(random_state=42)
-        codes_3d, Y = sm.fit_resample(codes_3d, Y)
+        class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y), y=Y)
+        class_weight_dict = dict(enumerate(class_weights))
+        print(f'class_weight_dict = {class_weight_dict}')
 
         model = cls.build_model(
             vocab_size=vocab_size,
@@ -472,7 +470,7 @@ class KerasHANClassifier(KerasClassifier):
             codes_3d, Y,
             epochs=epochs,
             batch_size=batch_size,
-            validation_split=0.2
+            class_weight=class_weight_dict
         )
         cls.plot_history(history)
         loss, accuracy = model.evaluate(codes_3d, Y, verbose=False)
