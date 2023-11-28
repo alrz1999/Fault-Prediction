@@ -136,26 +136,77 @@ class ASTTokenizer(TokenExtractor):
 
 
 class ASTExtractor(TokenExtractor):
-    def extract_tokens(self, input_text):
-        try:
-            tokens = []
-            tree = javalang.parse.parse(input_text)
-            for path, node in tree:
-                tokens.append(node.__class__.__name__)
-            return tokens
-        except:
-            print(input_text)
-            return []
-            tokens = []
-            lines = input_text.splitlines()
-            for line in lines:
-                try:
-                    tree = javalang.parse.parse_expression(line)
-                    for path, node in tree:
-                        tokens.append(node.__class__.__name__)
-                except:
-                    print(line)
-            return tokens
+    method_invocations_and_class_instance_creation_nodes = (
+        javalang.parser.tree.MethodInvocation,
+        javalang.parser.tree.SuperMethodInvocation,
+        javalang.parser.tree.MemberReference,
+        javalang.parser.tree.SuperMemberReference,
+    )
+
+    declaration_nodes = (
+        javalang.parser.tree.PackageDeclaration,
+        javalang.parser.tree.InterfaceDeclaration,
+        javalang.parser.tree.ClassDeclaration,
+        javalang.parser.tree.MethodDeclaration,
+        javalang.parser.tree.ConstructorDeclaration,
+        javalang.parser.tree.VariableDeclarator,
+        javalang.parser.tree.CatchClauseParameter,
+        javalang.parser.tree.FormalParameter,
+        javalang.parser.tree.TryResource,
+        javalang.parser.tree.ReferenceType,
+        javalang.parser.tree.BasicType,
+    )
+
+    control_flow_nodes = (
+        javalang.parser.tree.IfStatement,
+        javalang.parser.tree.WhileStatement,
+        javalang.parser.tree.DoStatement,
+        javalang.parser.tree.ForStatement,
+        javalang.parser.tree.AssertStatement,
+        javalang.parser.tree.BreakStatement,
+        javalang.parser.tree.ContinueStatement,
+        javalang.parser.tree.ReturnStatement,
+        javalang.parser.tree.ThrowStatement,
+        javalang.parser.tree.SynchronizedStatement,
+        javalang.parser.tree.TryStatement,
+        javalang.parser.tree.SwitchStatement,
+        javalang.parser.tree.CatchClause,
+        javalang.parser.tree.BlockStatement,
+        javalang.parser.tree.StatementExpression,
+        javalang.parser.tree.ForControl,
+        javalang.parser.tree.SwitchStatementCase,
+        javalang.parser.tree.EnhancedForControl,
+    )
+
+    desired_nodes = (
+        *method_invocations_and_class_instance_creation_nodes,
+        *declaration_nodes,
+        *control_flow_nodes
+    )
+
+    within_project_nodes = (
+        javalang.parser.tree.ClassDeclaration,
+        javalang.parser.tree.MethodDeclaration,
+        javalang.parser.tree.FormalParameter,
+        javalang.parser.tree.MethodInvocation,
+        javalang.parser.tree.CatchClauseParameter,
+        javalang.parser.tree.ConstructorDeclaration,
+    )
+
+    def extract_tokens(self, input_text, within_project=True):
+        tree = javalang.parse.parse(input_text)
+        tokens = []
+        for path, node in tree:
+            if isinstance(node, ASTExtractor.desired_nodes):
+                if within_project and isinstance(node, ASTExtractor.within_project_nodes):
+                    if isinstance(node, javalang.parser.tree.MethodInvocation):
+                        tokens.append(f'{node.qualifier}()')
+                    else:
+                        tokens.append(node.name)
+                else:
+                    tokens.append(node.__class__.__name__)
+
+        return tokens
 
 
 def test():
@@ -172,6 +223,11 @@ def test():
     }
     """
     tree = javalang.parse.parse(input_text)
+    # check_tree(tree)
+    print(ASTExtractor().extract_tokens(input_text))
+
+
+def check_tree(tree):
     depth = 1
     final_str = ""
     for path, node in tree:
@@ -203,9 +259,7 @@ def test():
         print(node.children)
         print(node.position)
         print("----------------------------------------------------")
-
     print(final_str)
-    print(ASTExtractor().extract_tokens(input_text))
 
 
 if __name__ == "__main__":
