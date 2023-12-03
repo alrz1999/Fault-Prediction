@@ -14,15 +14,15 @@ class FileLevelDatasetImporterStage(PipelineStage):
 
     def process(self):
         self.result = self.import_df()
-        self.stage_data[StageData.Keys.FILE_LEVEL_DF.value] = self.result
+        self.stage_data[StageData.Keys.FILE_LEVEL_SOURCE_CODE_DF.value] = self.result
 
 
 class LineLevelToFileLevelDatasetMapperStage(PipelineStage):
     def process(self):
-        line_level_df = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]
+        line_level_df = self.stage_data[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value]
         to_lowercase = self.stage_data['to_lowercase']
         text, label = LineLevelToFileLevelDatasetMapper.prepare_data(line_level_df, to_lowercase)
         data = {'text': text, 'label': label}
         file_level_df = pd.DataFrame(data)
         self.result = file_level_df
-        self.stage_data[StageData.Keys.FILE_LEVEL_DF.value] = self.result
+        self.stage_data[StageData.Keys.FILE_LEVEL_SOURCE_CODE_DF.value] = self.result

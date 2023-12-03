@@ -37,7 +37,7 @@ class ClassifierModel:
         plt.show()
 
     @classmethod
-    def train(cls, df, dataset_name, metadata=None):
+    def train(cls, source_code_df, dataset_name, metadata=None, validation_source_code_df=None):
         raise NotImplementedError()
 
     @classmethod

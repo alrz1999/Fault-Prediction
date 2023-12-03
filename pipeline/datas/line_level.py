@@ -24,4 +24,4 @@ class LineLevelDatasetImporterStage(PipelineStage):
 
     def process(self):
         self.result = self.import_dataset()
-        self.stage_data[StageData.Keys.LINE_LEVEL_DF.value] = self.result
+        self.stage_data[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value] = self.result

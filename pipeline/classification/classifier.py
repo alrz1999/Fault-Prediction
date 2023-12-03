@@ -16,14 +16,17 @@ class ClassifierTrainingStage(PipelineStage):
 
     def process(self):
         if self.is_file_level():
-            train_data = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]
+            train_data = self.stage_data[StageData.Keys.FILE_LEVEL_SOURCE_CODE_DF.value]
+            validation_data = self.stage_data.get(StageData.Keys.VALIDATION_FILE_LEVEL_SOURCE_CODE_DF.value)
         else:
-            train_data = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]
+            train_data = self.stage_data[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value]
+            validation_data = self.stage_data.get(StageData.Keys.VALIDATION_LINE_LEVEL_SOURCE_CODE_DF.value)
 
         model = self.classifier_cls.train(
-            train_data,
-            self.dataset_name,
-            metadata=self.stage_data
+            source_code_df=train_data,
+            dataset_name=self.dataset_name,
+            metadata=self.stage_data,
+            validation_source_code_df=validation_data
         )
         self.result = model
         self.stage_data[StageData.Keys.CLASSIFIER_MODEL.value] = self.result
@@ -47,9 +50,9 @@ class PredictingClassifierStage(PipelineStage):
 
     def process(self):
         if self.is_file_level():
-            data = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]
+            data = self.stage_data[StageData.Keys.FILE_LEVEL_SOURCE_CODE_DF.value]
         else:
-            data = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]
+            data = self.stage_data[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value]
         predicted_probabilities = self.get_classifier().predict(data, metadata=self.stage_data)
         if self.output_columns is not None:
             data = data[self.output_columns]

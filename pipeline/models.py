@@ -31,17 +31,18 @@ logger.addHandler(stream_handler)
 
 class StageData(dict):
     class Keys(Enum):
-        LINE_LEVEL_DF = 'line_level_df'
+        LINE_LEVEL_SOURCE_CODE_DF = 'line_level_source_code_df'
+        VALIDATION_LINE_LEVEL_SOURCE_CODE_DF = 'validation_line_level_source_code_df'
 
         EMBEDDING_MODEL = 'embedding_model'
-        EMBEDDING = 'embedding'
 
-        FILE_LEVEL_DF = 'file_level_df'
+        FILE_LEVEL_SOURCE_CODE_DF = 'file_level_source_code_df'
+        VALIDATION_FILE_LEVEL_SOURCE_CODE_DF = 'validation_file_level_source_code_df'
 
         CLASSIFIER_MODEL = 'classifier_model'
         PREDICTION_RESULT_DF = 'prediction_result_df'
 
-        INDEX_TO_VEC_MATRIX = 'embedding_matrix'
+        EMBEDDING_MATRIX = 'embedding_matrix'
 
     def combine_with(self, another_stage_data: dict):
         if another_stage_data is None:

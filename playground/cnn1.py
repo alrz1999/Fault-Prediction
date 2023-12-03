@@ -64,8 +64,8 @@ def main():
     Xtest, Ytest = get_x_y(max_length, project.get_validation_release(), to_lowercase, embedding_model)
 
     vocab_size = embedding_model.get_vocab_size()
-    embedding_vectors = embedding_model.get_index_to_vec_matrix(embedding_model.get_word_to_index_dict(), vocab_size,
-                                                                embedding_dim)
+    embedding_vectors = embedding_model.get_embedding_matrix(embedding_model.get_word_to_index_dict(), vocab_size,
+                                                             embedding_dim)
 
     model = Sequential()
     model.add(layers.Embedding(

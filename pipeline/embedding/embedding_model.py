@@ -26,9 +26,9 @@ class EmbeddingModelTrainingStage(PipelineStage):
 
     def process(self):
         if self.is_file_level():
-            texts = self.stage_data[StageData.Keys.FILE_LEVEL_DF.value]['text'].tolist()
+            texts = self.stage_data[StageData.Keys.FILE_LEVEL_SOURCE_CODE_DF.value]['text'].tolist()
         else:
-            texts = self.stage_data[StageData.Keys.LINE_LEVEL_DF.value]['text'].tolist()
+            texts = self.stage_data[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value]['text'].tolist()
 
         model = self.embedding_cls.train(
             texts,
@@ -78,7 +78,7 @@ class IndexToVecMatrixAdderStage(PipelineStage):
         word_index = embedding_model.get_word_to_index_dict() if self.word_to_index_dict is None else self.word_to_index_dict
         vocab_size = embedding_model.get_vocab_size()
         embedding_dim = embedding_model.get_embedding_dim()
-        embedding_matrix = embedding_model.get_index_to_vec_matrix(word_index, vocab_size, embedding_dim)
+        embedding_matrix = embedding_model.get_embedding_matrix(word_index, vocab_size, embedding_dim)
         if embedding_matrix is not None:
             self.result = np.array(embedding_matrix)
-            self.stage_data[StageData.Keys.INDEX_TO_VEC_MATRIX.value] = self.result
+            self.stage_data[StageData.Keys.EMBEDDING_MATRIX.value] = self.result

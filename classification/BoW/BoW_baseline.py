@@ -19,8 +19,8 @@ class BOWBaseLineClassifier(ClassifierModel):
         self.dataset_name = dataset_name
 
     @classmethod
-    def train(cls, df, dataset_name, metadata=None):
-        codes, labels = df['text'], df['label']
+    def train(cls, source_code_df, dataset_name, metadata=None, validation_source_code_df=None):
+        codes, labels = source_code_df['text'], source_code_df['label']
         vectorizer = CountVectorizer()
         vectorizer.fit(codes)
         X = vectorizer.transform(codes).toarray()

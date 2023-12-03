@@ -18,10 +18,10 @@ class MLPBaseLineClassifier(ClassifierModel):
         self.dataset_name = dataset_name
 
     @classmethod
-    def train(cls, df, dataset_name, metadata=None):
+    def train(cls, source_code_df, dataset_name, metadata=None, validation_source_code_df=None):
         embedding_model = metadata.get('embedding_model')
 
-        codes, labels = df['text'], df['label']
+        codes, labels = source_code_df['text'], source_code_df['label']
 
         X = np.array(embedding_model.text_to_vec(codes))
         Y = np.array([1 if label == True else 0 for label in labels])

@@ -25,7 +25,7 @@ class KerasClassifier(ClassifierModel):
         raise NotImplementedError()
 
     @classmethod
-    def train(cls, df, dataset_name, metadata=None):
+    def train(cls, source_code_df, dataset_name, metadata=None, validation_source_code_df=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -39,7 +39,7 @@ class KerasClassifier(ClassifierModel):
             vocab_size = metadata.get('vocab_size')
             embedding_dim = metadata.get('embedding_dim')
 
-        codes, labels = df['text'], df['label']
+        codes, labels = source_code_df['text'], source_code_df['label']
 
         X = embedding_model.text_to_indexes(codes)
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
@@ -421,7 +421,7 @@ class KerasHANClassifier(KerasClassifier):
         return model
 
     @classmethod
-    def train(cls, df, dataset_name, metadata=None):
+    def train(cls, source_code_df, dataset_name, metadata=None, validation_source_code_df=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -440,7 +440,7 @@ class KerasHANClassifier(KerasClassifier):
             vocab_size = metadata.get('vocab_size')
             embedding_dim = metadata.get('embedding_dim')
 
-        codes, labels = df['text'], df['label']
+        codes, labels = source_code_df['text'], source_code_df['label']
 
         codes_3d = np.zeros((len(codes), KerasHANClassifier.max_sent_num, max_seq_len), dtype='int32')
         for file_idx, file_code in enumerate(codes):

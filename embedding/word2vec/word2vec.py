@@ -78,7 +78,7 @@ class GensimWord2VecModel(EmbeddingModel):
     def get_word_to_index_dict(self):
         return self.model.wv.key_to_index
 
-    def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         embedding_matrix = np.zeros((vocab_size, embedding_dim))
 
         present_words = 0
@@ -125,7 +125,7 @@ class KerasTokenizer(EmbeddingModel):
     def get_word_to_index_dict(self):
         return self.tokenizer.word_index
 
-    def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         return None
 
     def get_vocab_size(self):
@@ -153,7 +153,7 @@ class SklearnCountTokenizer(EmbeddingModel):
     def text_to_indexes(self, texts):
         return self.count_vectorizer.transform(texts).toarray()
 
-    def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         return None
 
     def get_vocab_size(self):
@@ -191,7 +191,7 @@ class KerasTextVectorizer(EmbeddingModel):
         # text = tf.expand_dims(text, -1)
         return self.vectorize_layer(texts)
 
-    def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         return None
 
     def get_vocab_size(self):

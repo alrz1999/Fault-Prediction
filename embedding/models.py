@@ -28,7 +28,7 @@ class EmbeddingModel:
     def get_word_to_index_dict(self):
         raise NotImplementedError()
 
-    def get_index_to_vec_matrix(self, word_index, vocab_size, embedding_dim):
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         raise NotImplementedError()
 
     def get_vocab_size(self):
