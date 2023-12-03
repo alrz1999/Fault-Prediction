@@ -1,5 +1,8 @@
 import enum
 
+import pandas as pd
+
+from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project, AggregatedDatasetImporter
 from classification.keras_classifiers.classifiers import KerasClassifier, KerasDenseClassifier, \
@@ -12,15 +15,13 @@ from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTo
 
 from embedding.word2vec.word2vec import GensimWord2VecModel, KerasTokenizer, SklearnCountTokenizer, KerasTextVectorizer
 from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
-from pipeline.datas.file_level import LineLevelToFileLevelDatasetMapperStage, FileLevelDatasetImporterStage
-from pipeline.datas.line_level import LineLevelDatasetImporterStage
 from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage, \
     IndexToVecMatrixAdderStage
 from pipeline.evaluation.evaluation import EvaluationStage
 from pipeline.models import Pipeline, StageData
 
 
-class TrainingType(enum.Enum):
+class ClassificationType(enum.Enum):
     FILE_LEVEL = 'FILE_LEVEL'
     CLASS_LEVEL = 'CLASS_LEVEL'
     FUNCTION_LEVEL = 'FUNCTION_LEVEL'
@@ -32,35 +33,36 @@ class DatasetType(enum.Enum):
     LINE_LEVEL = 'LINE_LEVEL'
 
 
-def get_data_importer_pipeline_stages(dataset_importer):
-    if training_type == TrainingType.FILE_LEVEL:
-        if dataset_type == DatasetType.LINE_LEVEL:
-            training_data_importer_stages = [
-                LineLevelDatasetImporterStage(dataset_importer),
-                LineLevelToFileLevelDatasetMapperStage(),
-            ]
-        elif dataset_type == DatasetType.FILE_LEVEL:
-            training_data_importer_stages = [
-                FileLevelDatasetImporterStage(dataset_importer),
-            ]
-        else:
-            raise Exception(f'dataset_type {dataset_type} is not supported for training_type {training_type}')
-    elif training_type == TrainingType.LINE_LEVEL:
-        if dataset_type == DatasetType.LINE_LEVEL:
-            training_data_importer_stages = [
-                LineLevelDatasetImporterStage(dataset_importer),
-            ]
-        else:
-            raise Exception(f'dataset_type {dataset_type} is not supported for training_type {training_type}')
+def import_dataset(dataset_importer, to_lowercase):
+    if dataset_importer is None:
+        return None
+
+    replace_na_with_empty = True
+    return_blank_lines = False
+    return_test_file_lines = False
+    return_comment_lines = False
+    if classification_type == ClassificationType.FILE_LEVEL:
+        if dataset_type == DatasetType.FILE_LEVEL:
+            return dataset_importer.get_processed_file_level_dataset()
+        elif dataset_type == DatasetType.LINE_LEVEL:
+            line_level_df = dataset_importer.get_processed_line_level_dataset(
+                replace_na_with_empty=replace_na_with_empty,
+                return_blank_lines=return_blank_lines,
+                return_test_file_lines=return_test_file_lines,
+                return_comment_lines=return_comment_lines
+            )
+            text, label = LineLevelToFileLevelDatasetMapper.prepare_data(line_level_df, to_lowercase)
+            data = {'text': text, 'label': label}
+            return pd.DataFrame(data)
+    elif classification_type == ClassificationType.LINE_LEVEL:
+        return dataset_importer.get_processed_line_level_dataset(
+            replace_na_with_empty=replace_na_with_empty,
+            return_blank_lines=return_blank_lines,
+            return_test_file_lines=return_test_file_lines,
+            return_comment_lines=return_comment_lines
+        )
     else:
-        raise Exception(f'training_type {training_type} is not supported')
-    return training_data_importer_stages
-
-
-def get_data_importer_pipeline_data(dataset_importer, metadata=None):
-    training_data_importer_stages = get_data_importer_pipeline_stages(dataset_importer)
-    training_data_importer_pipeline_data = Pipeline(training_data_importer_stages).run(metadata)
-    return training_data_importer_pipeline_data
+        raise Exception(f'training_type {classification_type} is not supported')
 
 
 def get_embedding_pipeline_data(embedding_cls, embedding_dim, dataset_name, token_extractor, training_data):
@@ -86,8 +88,8 @@ def get_classifier_pipeline_data(classifier_cls, train_dataset_name, training_da
 
 def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_data):
     for eval_dataset_importer in eval_dataset_importers:
+        pipeline_data[StageData.Keys.EVALUATION_SOURCE_CODE_DF.value] = import_dataset(eval_dataset_importer, pipeline_data['to_lowercase'])
         classifier_prediction_stages = [
-            *get_data_importer_pipeline_stages(eval_dataset_importer),
             PredictingClassifierStage(
                 eval_dataset_importer.release_name,
                 output_columns=['label'],
@@ -104,9 +106,7 @@ def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_dat
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
              classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
              to_lowercase=False, vocab_size=None, validation_dataset_importer=None):
-    metadata = StageData({
-        'training_type': training_type.value,
-        'dataset_type': dataset_type.value,
+    pipeline_data = StageData({
         'dataset_name': train_dataset_name,
         'embedding_dim': embedding_dim,
         'max_seq_len': max_seq_len,
@@ -120,10 +120,17 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'dropout_ratio': 0.5
     })
 
-    pipeline_data = get_data_importer_pipeline_data(
-        dataset_importer=train_dataset_importer,
-        metadata=metadata
-    )
+    train_dataset = import_dataset(train_dataset_importer, to_lowercase)
+    validation_dataset = import_dataset(validation_dataset_importer, to_lowercase)
+    pipeline_data[StageData.Keys.TRAINING_SOURCE_CODE_DF.value] = train_dataset
+    pipeline_data[StageData.Keys.VALIDATION_SOURCE_CODE_DF.value] = validation_dataset
+
+    if classification_type == ClassificationType.FILE_LEVEL:
+        pipeline_data[StageData.Keys.FILE_LEVEL_DF.value] = train_dataset
+        pipeline_data[StageData.Keys.VALIDATION_FILE_LEVEL_DF.value] = validation_dataset
+    elif classification_type == ClassificationType.LINE_LEVEL:
+        pipeline_data[StageData.Keys.LINE_LEVEL_DF.value] = train_dataset
+        pipeline_data[StageData.Keys.VALIDATION_LINE_LEVEL_DF.value] = validation_dataset
 
     if embedding_cls is not None:
         pipeline_data = get_embedding_pipeline_data(
@@ -346,7 +353,8 @@ def keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_d
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=10
+        epochs=10,
+        validation_dataset_importer=eval_dataset_importers[0]
     )
 
 
@@ -426,7 +434,7 @@ def get_cross_project_2_dataset():
     return 'cross-project', AggregatedDatasetImporter(train_releases), eval_releases
 
 
-training_type = TrainingType.FILE_LEVEL
+classification_type = ClassificationType.FILE_LEVEL
 dataset_type = DatasetType.LINE_LEVEL
 
 if __name__ == '__main__':

@@ -41,19 +41,19 @@ class KerasClassifier(ClassifierModel):
 
         codes, labels = source_code_df['text'], source_code_df['label']
 
-        X = embedding_model.text_to_indexes(codes)
-        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
+        X_train = embedding_model.text_to_indexes(codes)
+        X_train = pad_sequences(X_train, padding='post', maxlen=max_seq_len)
         if max_seq_len is None:
-            max_seq_len = X.shape[1]
+            max_seq_len = X_train.shape[1]
 
-        Y = np.array([1 if label == True else 0 for label in labels])
+        Y_train = np.array([1 if label == True else 0 for label in labels])
 
         sm = SMOTE(random_state=42)
-        X, Y = sm.fit_resample(X, Y)
+        X_train, Y_train = sm.fit_resample(X_train, Y_train)
 
         if metadata.get('perform_k_fold_cross_validation'):
-            cls.k_fold_cross_validation(X, Y, batch_size, embedding_dim, embedding_matrix, epochs, max_seq_len,
-                                        vocab_size)
+            cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
+                                        max_seq_len, vocab_size)
 
         model = cls.build_model(
             vocab_size=vocab_size,
@@ -63,18 +63,19 @@ class KerasClassifier(ClassifierModel):
             show_summary=True
         )
 
-        class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y), y=Y)
+        class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y_train), y=Y_train)
         class_weight_dict = dict(enumerate(class_weights))
         print(f'class_weight_dict = {class_weight_dict}')
 
         history = model.fit(
-            X, Y,
+            X_train, Y_train,
             epochs=epochs,
             batch_size=batch_size,
-            class_weight=class_weight_dict
+            class_weight=class_weight_dict,
+            validation_data=cls.get_validation_data(validation_source_code_df, embedding_model, max_seq_len)
         )
         cls.plot_history(history)
-        loss, accuracy = model.evaluate(X, Y, verbose=False)
+        loss, accuracy = model.evaluate(X_train, Y_train, verbose=False)
         print("Training Accuracy: {:.4f}".format(accuracy))
         return cls(model, embedding_model)
 
@@ -122,6 +123,15 @@ class KerasClassifier(ClassifierModel):
 
         X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
         return self.model.predict(X_test)
+
+    @classmethod
+    def get_validation_data(cls, validation_source_code_df, embedding_model, max_seq_len):
+        codes, labels = validation_source_code_df['text'], validation_source_code_df['label']
+
+        X = embedding_model.text_to_indexes(codes)
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
+        Y = np.array([1 if label == True else 0 for label in labels])
+        return X, Y
 
 
 class KerasDenseClassifier(KerasClassifier):

@@ -16,7 +16,7 @@ def main():
     stages = [
         LineLevelDatasetImporterStage(project.get_train_release()),
     ]
-    pipeline_data = Pipeline(stages).run()[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value]
+    pipeline_data = Pipeline(stages).run()[StageData.Keys.LINE_LEVEL_DF.value]
     print(token_extractor.extract_tokens(pipeline_data['code_line'].tolist()[0]))
 
 

@@ -25,10 +25,7 @@ class EmbeddingModelTrainingStage(PipelineStage):
         self.result.export_model()
 
     def process(self):
-        if self.is_file_level():
-            texts = self.stage_data[StageData.Keys.FILE_LEVEL_SOURCE_CODE_DF.value]['text'].tolist()
-        else:
-            texts = self.stage_data[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value]['text'].tolist()
+        texts = self.stage_data[StageData.Keys.TRAINING_SOURCE_CODE_DF.value]['text'].tolist()
 
         model = self.embedding_cls.train(
             texts,

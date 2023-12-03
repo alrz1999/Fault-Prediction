@@ -15,12 +15,8 @@ class ClassifierTrainingStage(PipelineStage):
         self.result.export_model()
 
     def process(self):
-        if self.is_file_level():
-            train_data = self.stage_data[StageData.Keys.FILE_LEVEL_SOURCE_CODE_DF.value]
-            validation_data = self.stage_data.get(StageData.Keys.VALIDATION_FILE_LEVEL_SOURCE_CODE_DF.value)
-        else:
-            train_data = self.stage_data[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value]
-            validation_data = self.stage_data.get(StageData.Keys.VALIDATION_LINE_LEVEL_SOURCE_CODE_DF.value)
+        train_data = self.stage_data[StageData.Keys.TRAINING_SOURCE_CODE_DF.value]
+        validation_data = self.stage_data.get(StageData.Keys.VALIDATION_SOURCE_CODE_DF.value)
 
         model = self.classifier_cls.train(
             source_code_df=train_data,
@@ -49,10 +45,7 @@ class PredictingClassifierStage(PipelineStage):
         self.result.to_csv(self.get_classifier().get_result_dataset_path(self.dataset_name), index=False)
 
     def process(self):
-        if self.is_file_level():
-            data = self.stage_data[StageData.Keys.FILE_LEVEL_SOURCE_CODE_DF.value]
-        else:
-            data = self.stage_data[StageData.Keys.LINE_LEVEL_SOURCE_CODE_DF.value]
+        data = self.stage_data[StageData.Keys.EVALUATION_SOURCE_CODE_DF.value]
         predicted_probabilities = self.get_classifier().predict(data, metadata=self.stage_data)
         if self.output_columns is not None:
             data = data[self.output_columns]

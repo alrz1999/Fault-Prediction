@@ -31,18 +31,22 @@ logger.addHandler(stream_handler)
 
 class StageData(dict):
     class Keys(Enum):
-        LINE_LEVEL_SOURCE_CODE_DF = 'line_level_source_code_df'
-        VALIDATION_LINE_LEVEL_SOURCE_CODE_DF = 'validation_line_level_source_code_df'
+        LINE_LEVEL_DF = 'line_level_df'
+        VALIDATION_LINE_LEVEL_DF = 'validation_line_level_df'
 
         EMBEDDING_MODEL = 'embedding_model'
 
-        FILE_LEVEL_SOURCE_CODE_DF = 'file_level_source_code_df'
-        VALIDATION_FILE_LEVEL_SOURCE_CODE_DF = 'validation_file_level_source_code_df'
+        FILE_LEVEL_DF = 'file_level_df'
+        VALIDATION_FILE_LEVEL_DF = 'validation_file_level_df'
 
         CLASSIFIER_MODEL = 'classifier_model'
         PREDICTION_RESULT_DF = 'prediction_result_df'
 
         EMBEDDING_MATRIX = 'embedding_matrix'
+
+        TRAINING_SOURCE_CODE_DF = 'training_source_code_df'
+        VALIDATION_SOURCE_CODE_DF = 'validation_source_code_df'
+        EVALUATION_SOURCE_CODE_DF = 'evaluation_source_code_df'
 
     def combine_with(self, another_stage_data: dict):
         if another_stage_data is None:
@@ -92,15 +96,6 @@ class PipelineStage:
 
     def __repr__(self):
         return self.name
-
-    def is_file_level(self):
-        training_type = self.stage_data['training_type']
-        if training_type == 'FILE_LEVEL':
-            return True
-        elif training_type == 'LINE_LEVEL':
-            return False
-        else:
-            raise Exception('training_type data should be provided to this stage')
 
 
 class Pipeline:
