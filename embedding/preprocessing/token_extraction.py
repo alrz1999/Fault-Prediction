@@ -136,6 +136,9 @@ class ASTTokenizer(TokenExtractor):
 
 
 class ASTExtractor(TokenExtractor):
+    def __init__(self, within_project=True):
+        self.within_project = within_project
+
     method_invocations_and_class_instance_creation_nodes = (
         javalang.parser.tree.MethodInvocation,
         javalang.parser.tree.SuperMethodInvocation,
@@ -193,12 +196,12 @@ class ASTExtractor(TokenExtractor):
         javalang.parser.tree.ConstructorDeclaration,
     )
 
-    def extract_tokens(self, input_text, within_project=True):
+    def extract_tokens(self, input_text):
         tree = javalang.parse.parse(input_text)
         tokens = []
         for path, node in tree:
             if isinstance(node, ASTExtractor.desired_nodes):
-                if within_project and isinstance(node, ASTExtractor.within_project_nodes):
+                if self.within_project and isinstance(node, ASTExtractor.within_project_nodes):
                     if isinstance(node, javalang.parser.tree.MethodInvocation):
                         tokens.append(f'{node.qualifier}()')
                     else:
