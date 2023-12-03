@@ -30,7 +30,6 @@ def main():
     train_embedding_layer_in_classification_training = False
 
     line_level_dataset = project.get_train_release().get_processed_line_level_dataset()
-    line_level_dataset = line_level_dataset.rename(columns={'code_line': 'text', 'line-label': 'label'})
     train_docs, train_labels = LineLevelToFileLevelDatasetMapper.prepare_data(line_level_dataset, to_lowercase)
     for doc in train_docs:
         doc_tokens = token_extractor.extract_tokens(doc)
@@ -102,7 +101,6 @@ def main():
 
 def get_x_y(max_length, release, to_lowercase, embedding_model):
     line_level_dataset = release.get_processed_line_level_dataset()
-    line_level_dataset = line_level_dataset.rename(columns={'code_line': 'text', 'line-label': 'label'})
     val_docs, val_labels = LineLevelToFileLevelDatasetMapper.prepare_data(line_level_dataset, to_lowercase)
     validation_encoded_docs = embedding_model.text_to_indexes(val_docs)
     Xtest = pad_sequences(validation_encoded_docs, maxlen=max_length, padding='post')

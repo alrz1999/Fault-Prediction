@@ -103,7 +103,7 @@ def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_dat
 
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
              classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
-             to_lowercase=False, vocab_size=None):
+             to_lowercase=False, vocab_size=None, validation_dataset_importer=None):
     metadata = StageData({
         'training_type': training_type.value,
         'dataset_type': dataset_type.value,

@@ -14,13 +14,12 @@ class LineLevelDatasetImporterStage(PipelineStage):
         self.return_test_file_lines = return_test_file_lines
 
     def import_dataset(self):
-        df = self.line_level_dataset_importer.get_processed_line_level_dataset(
+        return self.line_level_dataset_importer.get_processed_line_level_dataset(
             replace_na_with_empty=self.replace_na_with_empty,
             return_blank_lines=self.return_blank_lines,
             return_test_file_lines=self.return_test_file_lines,
             return_comment_lines=self.return_comment_lines
         )
-        return df.rename(columns={'code_line': 'text', 'line-label': 'label'})
 
     def process(self):
         self.result = self.import_dataset()

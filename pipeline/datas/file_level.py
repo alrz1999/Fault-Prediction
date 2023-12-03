@@ -9,8 +9,7 @@ class FileLevelDatasetImporterStage(PipelineStage):
         self.file_level_dataset_importer = file_level_dataset_importer
 
     def import_df(self):
-        df = self.file_level_dataset_importer.get_file_level_dataset()
-        return df.rename(columns={'SRC': 'text', 'Bug': 'label'})
+        return self.file_level_dataset_importer.get_processed_file_level_dataset()
 
     def process(self):
         self.result = self.import_df()

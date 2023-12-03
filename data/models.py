@@ -9,6 +9,10 @@ class FileLevelDatasetImporter:
     def get_file_level_dataset(self):
         raise NotImplementedError()
 
+    def get_processed_file_level_dataset(self):
+        df = self.get_file_level_dataset()
+        return df.rename(columns={'SRC': 'text', 'Bug': 'label'})
+
 
 class LineLevelDatasetImporter:
     def get_line_level_dataset(self):
@@ -27,6 +31,7 @@ class LineLevelDatasetImporter:
         if not return_comment_lines:
             df = df[df['is_comment'] == False]
 
+        df = df.rename(columns={'code_line': 'text', 'line-label': 'label'})
         return df
 
 
