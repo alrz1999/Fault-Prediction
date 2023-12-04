@@ -45,6 +45,7 @@ class KerasClassifier(ClassifierModel):
         X_train = pad_sequences(X_train, padding='post', maxlen=max_seq_len)
         if max_seq_len is None:
             max_seq_len = X_train.shape[1]
+            metadata['max_seq_len'] = max_seq_len
 
         Y_train = np.array([1 if label == True else 0 for label in labels])
 
