@@ -2,7 +2,7 @@ import enum
 
 import pandas as pd
 
-from classification.torch_classifier.classifiers import TorchClassifier
+from classification.torch_classifier.classifiers import TorchClassifier, TorchHANClassifier
 from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
 from data.models import Project, AggregatedDatasetImporter
@@ -395,6 +395,24 @@ def torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_im
         validation_dataset_importer=eval_dataset_importers[0]
     )
 
+def torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 100
+    to_lowercase = True
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=TorchHANClassifier,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=10,
+        validation_dataset_importer=eval_dataset_importers[0]
+    )
+
 
 def generate_line_level_dfs():
     for project_name in Project.releases_by_project_name.keys():
@@ -455,7 +473,7 @@ def get_cross_project_2_dataset():
 
 
 classification_type = ClassificationType.FILE_LEVEL
-dataset_type = DatasetType.FILE_LEVEL
+dataset_type = DatasetType.LINE_LEVEL
 
 if __name__ == '__main__':
     # generate_line_level_dfs()
@@ -476,4 +494,5 @@ if __name__ == '__main__':
     # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)

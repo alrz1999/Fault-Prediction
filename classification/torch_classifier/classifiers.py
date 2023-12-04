@@ -1,5 +1,6 @@
 import numpy as np
 from keras.src.utils import pad_sequences
+from sklearn.utils import compute_class_weight
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
 
@@ -8,6 +9,8 @@ import torch.nn as nn
 import torch
 import torch.optim as optim
 from torch.nn import functional as F
+
+from classification.torch_classifier.deep_line_dp import HierarchicalAttentionNetwork
 
 
 class CNN(nn.Module):
@@ -197,4 +200,189 @@ class TorchClassifier(ClassifierModel):
         for inputs, labels in dl:
             output = net(inputs)
             outputs.extend(output.flatten().tolist())
+        return outputs
+
+
+class TorchHANClassifier(ClassifierModel):
+    def __init__(self, model, embedding_model):
+        self.model = model
+        self.embedding_model = embedding_model
+
+    max_sent_num = 1000
+
+    @classmethod
+    def get_loss_weight(cls, labels, weight_dict):
+        '''
+            input
+                labels: a PyTorch tensor that contains labels
+            output
+                weight_tensor: a PyTorch tensor that contains weight of defect/clean class
+        '''
+        label_list = labels.cpu().numpy().squeeze().tolist()
+        weight_list = []
+
+        for lab in label_list:
+            if lab == 0:
+                weight_list.append(weight_dict['clean'])
+            else:
+                weight_list.append(weight_dict['defect'])
+
+        weight_tensor = torch.tensor(weight_list).reshape(-1, 1)
+        return weight_tensor
+
+    @classmethod
+    def train(cls, source_code_df, dataset_name, metadata=None, validation_source_code_df=None):
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        max_grad_norm = 5
+        word_gru_hidden_dim = 100
+        sent_gru_hidden_dim = 100
+        word_gru_num_layers = 100
+        sent_gru_num_layers = 100
+        word_att_dim = 64
+        sent_att_dim = 64
+        lr = 0.001
+        use_layer_norm = True
+        dropout = 0.5
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        train_df = source_code_df
+        valid_df = validation_source_code_df
+
+        train_code, train_label = train_df['text'], train_df['label']
+        valid_code, valid_label = valid_df['text'], valid_df['label']
+
+        x_train_vec = cls.get_codes_3d(embedding_model, max_seq_len, train_code)
+        x_valid_vec = cls.get_codes_3d(embedding_model, max_seq_len, valid_code)
+
+        sample_weights = compute_class_weight(class_weight='balanced', classes=np.unique(train_label), y=train_label)
+
+        Y_train = np.array([1 if label == True else 0 for label in train_label])
+        train_tensor_data = TensorDataset(torch.from_numpy(x_train_vec),
+                                          torch.from_numpy(np.array(Y_train).astype(int)))
+        train_dl = DataLoader(train_tensor_data, shuffle=True, batch_size=batch_size, drop_last=True)
+
+        Y_valid = np.array([1 if label == True else 0 for label in valid_label])
+        valid_tensor_data = TensorDataset(torch.from_numpy(x_valid_vec),
+                                          torch.from_numpy(np.array(Y_valid).astype(int)))
+        valid_dl = DataLoader(valid_tensor_data, shuffle=True, batch_size=batch_size, drop_last=True)
+
+        weight_dict = {}
+        weight_dict['defect'] = np.max(sample_weights)
+        weight_dict['clean'] = np.min(sample_weights)
+
+        model = HierarchicalAttentionNetwork(
+            vocab_size=vocab_size,
+            embed_dim=embedding_dim,
+            word_gru_hidden_dim=word_gru_hidden_dim,
+            sent_gru_hidden_dim=sent_gru_hidden_dim,
+            word_gru_num_layers=word_gru_num_layers,
+            sent_gru_num_layers=sent_gru_num_layers,
+            word_att_dim=word_att_dim,
+            sent_att_dim=sent_att_dim,
+            use_layer_norm=use_layer_norm,
+            dropout=dropout
+        )
+
+        model = model
+        model.sent_attention.word_attention.freeze_embeddings(False)
+
+        optimizer = optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
+
+        criterion = nn.BCELoss()
+
+        train_loss_all_epochs = []
+        val_loss_all_epochs = []
+
+        for epoch in tqdm(range(0, epochs + 1)):
+            train_losses = []
+            val_losses = []
+
+            model.train()
+
+            for inputs, labels in train_dl:
+                inputs_cuda, labels_cuda = inputs, labels
+                output, _, __, ___ = model(inputs_cuda)
+
+                weight_tensor = cls.get_loss_weight(labels, weight_dict)
+
+                criterion.weight = weight_tensor
+
+                loss = criterion(output, labels_cuda.reshape(batch_size, 1))
+
+                train_losses.append(loss.item())
+
+                # torch.cuda.empty_cache()
+
+                loss.backward()
+                nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+
+                optimizer.step()
+
+                # torch.cuda.empty_cache()
+
+            train_loss_all_epochs.append(np.mean(train_losses))
+
+            with torch.no_grad():
+
+                criterion.weight = None
+                model.eval()
+
+                for inputs, labels in valid_dl:
+                    inputs, labels = inputs, labels
+                    output, _, __, ___ = model(inputs)
+
+                    val_loss = criterion(output, labels.reshape(batch_size, 1))
+
+                    val_losses.append(val_loss.item())
+
+                val_loss_all_epochs.append(np.mean(val_losses))
+
+    @classmethod
+    def get_codes_3d(cls, embedding_model, max_seq_len, codes):
+        codes_3d = np.zeros((len(codes), TorchHANClassifier.max_sent_num, max_seq_len), dtype='int32')
+        for file_idx, file_code in enumerate(codes):
+            for line_idx, line in enumerate(file_code.splitlines()):
+                if line_idx >= TorchHANClassifier.max_sent_num:
+                    continue
+
+                X = embedding_model.text_to_indexes([line])[0]
+                X = pad_sequences([X], padding='post', maxlen=max_seq_len)
+                codes_3d[file_idx, line_idx, :] = X
+
+        return codes_3d
+
+    def predict(self, df, metadata=None):
+        max_seq_len = metadata.get('max_seq_len')
+        batch_size = metadata.get('batch_size')
+
+        model = self.model
+        model.sent_attention.word_attention.freeze_embeddings(True)
+        # model = model.cuda()
+        model.eval()
+
+        test_df = df
+
+        code, labels = test_df['text'], test_df['label']
+        x_vec = self.get_codes_3d(self.embedding_model, max_seq_len, code)
+        Y = np.array([1 if label == True else 0 for label in labels])
+
+        tensor_data = TensorDataset(torch.from_numpy(x_vec),
+                                    torch.from_numpy(np.array(Y).astype(int)))
+        dl = DataLoader(tensor_data, shuffle=False, batch_size=batch_size)
+
+        outputs = []
+        for inputs, labels in dl:
+            with torch.no_grad():
+                output, word_att_weights, line_att_weight, _ = model(inputs)
+                output = model(inputs)
+                outputs.extend(output.flatten().tolist())
         return outputs
