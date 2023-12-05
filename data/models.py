@@ -51,7 +51,8 @@ class AggregatedDatasetImporter(LineLevelDatasetImporter, FileLevelDatasetImport
 class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
-                          'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1'
+                          'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1',
+                          'ant': 'ant-1.4', 'lucene-new': 'lucene-2.0',
                           }
 
     all_eval_releases = {'activemq': ['activemq-5.1.0', 'activemq-5.2.0', 'activemq-5.3.0', 'activemq-5.8.0'],
@@ -61,7 +62,9 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
                          'hbase': ['hbase-0.95.0', 'hbase-0.95.2'], 'hive': ['hive-0.10.0', 'hive-0.12.0'],
                          'jruby': ['jruby-1.4.0', 'jruby-1.5.0', 'jruby-1.7.0.preview1'],
                          'lucene': ['lucene-2.9.0', 'lucene-3.0.0', 'lucene-3.1'],
-                         'wicket': ['wicket-1.3.0-beta2', 'wicket-1.5.3']
+                         'wicket': ['wicket-1.3.0-beta2', 'wicket-1.5.3'],
+                         'ant': ['ant-1.6'],
+                         'lucene-new': ['lucene-2.2']
                          }
 
     releases_by_project_name = {
@@ -73,7 +76,9 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
         'hive': ['hive-0.9.0', 'hive-0.10.0', 'hive-0.12.0'],
         'jruby': ['jruby-1.1', 'jruby-1.4.0', 'jruby-1.5.0', 'jruby-1.7.0.preview1'],
         'lucene': ['lucene-2.3.0', 'lucene-2.9.0', 'lucene-3.0.0', 'lucene-3.1'],
-        'wicket': ['wicket-1.3.0-incubating-beta-1', 'wicket-1.3.0-beta2', 'wicket-1.5.3']
+        'wicket': ['wicket-1.3.0-incubating-beta-1', 'wicket-1.3.0-beta2', 'wicket-1.5.3'],
+        'ant': ['ant-1.4', 'ant-1.6'],
+        'lucene-new': ['lucene-2.0', 'lucene-2.2']
     }
 
     def __init__(self, name, line_level_dataset_save_dir, file_level_dataset_dir):
@@ -208,11 +213,12 @@ class FileLevelBugRepository:
 
 class LineLevelBugRepository:
     def __init__(self, release):
-        self.line_level_df = pd.read_csv(get_buggy_lines_dataset_path(release), encoding='latin')
+        self.buggy_lines_dataset_path = get_buggy_lines_dataset_path(release)
 
     def get_file_buggy_lines(self, filename):
+        line_level_df = pd.read_csv(self.buggy_lines_dataset_path, encoding='latin')
         return list(
-            self.line_level_df[self.line_level_df['File'] == filename]['Line_number']
+            line_level_df[line_level_df['File'] == filename]['Line_number']
         )
 
 
