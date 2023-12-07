@@ -379,8 +379,8 @@ def keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_d
 
 
 def keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 100
-    to_lowercase = True
+    max_seq_len = 500
+    to_lowercase = False
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -390,10 +390,10 @@ def keras_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
         # token_extractor=ASTTokenizer(False),
-        token_extractor=ASTExtractor(cross_project=False),
+        token_extractor=ASTTokenizer(cross_project=False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
-        batch_size=32,
+        batch_size=8,
         epochs=10,
         validation_dataset_importer=eval_dataset_importers[0]
     )

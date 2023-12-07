@@ -382,7 +382,7 @@ class KerasCNNandLSTMClassifier(KerasClassifier):
 
 
 class KerasHANClassifier(KerasClassifier):
-    max_sent_num = 50
+    max_sent_num = 100
 
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
@@ -403,7 +403,8 @@ class KerasHANClassifier(KerasClassifier):
             vocab_size, embedding_dim,
             weights=[embedding_matrix],
             input_length=max_seq_len,
-            trainable=False
+            trainable=True,
+            mask_zero=True
         )
 
         # Token level attention model
