@@ -42,6 +42,7 @@ class GensimWord2VecModel(EmbeddingModel):
         token_extractor: TokenExtractor = metadata.get('token_extractor')
 
         tokens = [token_extractor.extract_tokens(text) for text in texts]
+        tokens.extend([['<pad>'] * 100000])
         model = Word2Vec(tokens, vector_size=embedding_dim, min_count=1, sorted_vocab=1)
         output_model = cls(model, dataset_name, embedding_dim, token_extractor)
         print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
