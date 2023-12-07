@@ -209,7 +209,7 @@ def keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_data
 
 
 def keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 600
+    max_seq_len = None
     to_lowercase = False
     classify(
         train_dataset_name=train_dataset_name,
@@ -217,8 +217,10 @@ def keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_impo
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=KerasDenseClassifierWithEmbedding,
         embedding_cls=KerasTokenizer,
-        token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
-        embedding_dim=50,
+        # token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
+        token_extractor=ASTExtractor(False),
+        # token_extractor=ASTTokenizer(False),
+        embedding_dim=30,
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=10,
@@ -228,7 +230,7 @@ def keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_impo
 
 
 def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 400
+    max_seq_len = None
     to_lowercase = False
 
     classify(
@@ -237,7 +239,9 @@ def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dat
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=KerasDenseClassifierWithExternalEmbedding,
         embedding_cls=GensimWord2VecModel,
-        token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
+        # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
+        token_extractor=ASTExtractor(False),
+        # token_extractor=ASTTokenizer(True),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
@@ -247,7 +251,7 @@ def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dat
 
 
 def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 100
+    max_seq_len = None
     to_lowercase = False
     classify(
         train_dataset_name=train_dataset_name,
@@ -257,7 +261,7 @@ def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_datase
         embedding_cls=GensimWord2VecModel,
         # token_extractor=ASTTokenizer(False),
         # token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
-        token_extractor=ASTExtractor(cross_project=True),
+        token_extractor=ASTExtractor(cross_project=False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
@@ -269,11 +273,11 @@ def keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_datase
 
 
 def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 300
+    max_seq_len = None
     to_lowercase = False
     # token_extractor = CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len)
     # token_extractor = ASTTokenizer(cross_project=False)
-    token_extractor = ASTExtractor(cross_project=True)
+    token_extractor = ASTExtractor(cross_project=False)
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -282,7 +286,7 @@ def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_import
         classifier_cls=KerasCNNClassifierWithEmbedding,
         embedding_cls=GensimWord2VecModel,
         token_extractor=token_extractor,
-        embedding_dim=100,
+        embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=12,
@@ -294,7 +298,7 @@ def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_import
 
 def keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = None
-    to_lowercase = True
+    to_lowercase = False
 
     classify(
         train_dataset_name=train_dataset_name,
@@ -303,8 +307,8 @@ def keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_datas
         classifier_cls=KerasLSTMClassifier,
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        token_extractor=ASTExtractor(),
-        embedding_dim=50,
+        token_extractor=ASTExtractor(cross_project=False),
+        embedding_dim=64,
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=10,
@@ -324,8 +328,8 @@ def keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dat
         classifier_cls=KerasBiLSTMClassifier,
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        token_extractor=ASTExtractor(),
-        embedding_dim=50,
+        token_extractor=ASTExtractor(cross_project=False),
+        embedding_dim=64,
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=5,
@@ -344,8 +348,8 @@ def keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_datase
         classifier_cls=KerasGRUClassifier,
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        token_extractor=ASTExtractor(),
-        embedding_dim=50,
+        token_extractor=ASTExtractor(cross_project=False),
+        embedding_dim=64,
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=10,
@@ -354,7 +358,7 @@ def keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_datase
 
 
 def keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 500
+    max_seq_len = None
     to_lowercase = True
 
     classify(
@@ -364,7 +368,8 @@ def keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_d
         classifier_cls=KerasCNNandLSTMClassifier,
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        token_extractor=ASTTokenizer(False),
+        # token_extractor=ASTTokenizer(False),
+        token_extractor=ASTExtractor(cross_project=False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
@@ -384,7 +389,8 @@ def keras_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
         classifier_cls=KerasHANClassifier,
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        token_extractor=ASTTokenizer(False),
+        # token_extractor=ASTTokenizer(False),
+        token_extractor=ASTExtractor(cross_project=False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
@@ -509,6 +515,6 @@ if __name__ == '__main__':
     # keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
