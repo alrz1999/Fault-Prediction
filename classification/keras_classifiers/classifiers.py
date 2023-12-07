@@ -161,7 +161,8 @@ class KerasDenseClassifierWithEmbedding(KerasClassifier):
                 input_dim=vocab_size,
                 output_dim=embedding_dim,
                 input_length=max_seq_len,
-                trainable=True
+                trainable=True,
+                mask_zero=True
             )
         )
         model.add(layers.Flatten())
@@ -182,20 +183,22 @@ class KerasDenseClassifierWithExternalEmbedding(KerasClassifier):
                 vocab_size, embedding_dim,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
-                trainable=True
+                trainable=True,
+                mask_zero=True
             )
         )
         # model.add(layers.GlobalMaxPool1D())
+        # model.add(layers.Dropout(0.2))
         model.add(layers.Flatten())
-        model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(64, activation='relu'))
-        model.add(layers.Dropout(0.25))
+        model.add(layers.Dropout(0.2))
+        # model.add(layers.Dense(64, activation='relu'))
+        # model.add(layers.Dropout(0.25))
         # model.add(layers.Dense(256, activation='relu'))
         # model.add(layers.Dropout(0.25))
         # model.add(layers.Dense(128, activation='relu'))
         # model.add(layers.Dropout(0.25))
-        model.add(layers.Dense(8, activation='relu'))
-        model.add(layers.Dropout(0.25))
+        # model.add(layers.Dense(8, activation='relu'))
+        # model.add(layers.Dropout(0.25))
         # model.add(layers.MaxPooling1D())
         # model.add(layers.Dense(10, activation='relu'))
         # Project onto a single unit output layer, and squash it with a sigmoid:
@@ -208,43 +211,18 @@ class KerasDenseClassifierWithExternalEmbedding(KerasClassifier):
         return model
 
 
-class KerasCNNClassifierWithEmbedding(KerasClassifier):
-    @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
-        model = Sequential()
-
-        model.add(
-            layers.Embedding(
-                vocab_size, embedding_dim,
-                weights=[embedding_matrix],
-                input_length=max_seq_len,
-                trainable=True
-            )
-        )
-
-        model.add(layers.Conv1D(100, 4, padding="same", activation="relu"))
-        model.add(layers.GlobalMaxPool1D())
-        model.add(layers.Dropout(0.5))
-        model.add(layers.Dense(100, activation="relu"))
-        model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
-        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.summary()
-        return model
-
-    @classmethod
-    def get_result_dataset_path(cls, dataset_name):
-        return os.path.join(KERAS_CNN_SAVE_PREDICTION_DIR, dataset_name + '.csv')
-
-
 class KerasCNNClassifier(KerasClassifier):
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         inputs = tf.keras.Input(shape=(None,), dtype="int64")
-        x = layers.Embedding(vocab_size, embedding_dim)(inputs)
-        x = layers.Conv1D(100, 4, padding="same", activation="relu")(x)
+        x = layers.Embedding(vocab_size, embedding_dim, mask_zero=True, input_length=max_seq_len)(inputs)
+        # x = layers.Conv1D(100, 4, padding="same", activation="relu")(x)
+        x = layers.Conv1D(100, 5, padding="same", activation="relu")(x)
         x = layers.GlobalMaxPooling1D()(x)
-        x = layers.Dropout(0.5)(x)
+        x = layers.Dropout(0.25)(x)
         x = layers.Dense(100, activation="relu")(x)
+        # x = layers.Dropout(0.25)(x)
+        # x = layers.Dense(20, activation="relu")(x)
         predictions = layers.Dense(1, activation="sigmoid", name="predictions")(x)
         model = tf.keras.Model(inputs, predictions)
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
@@ -255,7 +233,7 @@ class KerasCNNClassifier(KerasClassifier):
     # @classmethod
     # def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
     #     model = Sequential()
-    #     word_embeddings = layers.Embedding(vocab_size, embedding_dim, input_length=max_seq_len)
+    #     word_embeddings = layers.Embedding(vocab_size, embedding_dim, input_length=max_seq_len, mask_zero=True)
     #     model.add(word_embeddings)
     #     # Add a dimension at index 1
     #     model.add(layers.Reshape((max_seq_len, embedding_dim, 1)))
@@ -264,7 +242,7 @@ class KerasCNNClassifier(KerasClassifier):
     #     model.add(layers.Lambda(lambda x: tf.squeeze(x, axis=-2)))
     #     model.add(layers.MaxPooling1D(pool_size=model.output_shape[1]))
     #     model.add(layers.Flatten())
-    #     model.add(layers.Dropout(0.5))
+    #     model.add(layers.Dropout(0.25))
     #     model.add(layers.Dense(1, activation='sigmoid', name="predictions"))
     #     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     #     if kwargs.get('show_summary'):
@@ -276,15 +254,44 @@ class KerasCNNClassifier(KerasClassifier):
         return os.path.join(KERAS_SAVE_PREDICTION_DIR, dataset_name + '.csv')
 
 
+class KerasCNNClassifierWithEmbedding(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        model = Sequential()
+
+        model.add(
+            layers.Embedding(
+                vocab_size, embedding_dim,
+                weights=[embedding_matrix],
+                input_length=max_seq_len,
+                trainable=True,
+                mask_zero=True
+            )
+        )
+
+        model.add(layers.Conv1D(100, 5, padding="same", activation="relu"))
+        model.add(layers.GlobalMaxPool1D())
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Dense(100, activation="relu"))
+        model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
+        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
+        return model
+
+    @classmethod
+    def get_result_dataset_path(cls, dataset_name):
+        return os.path.join(KERAS_CNN_SAVE_PREDICTION_DIR, dataset_name + '.csv')
+
+
 class KerasLSTMClassifier(KerasClassifier):
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         inputs = tf.keras.Input(shape=(None,), dtype="int64")
-        x = layers.Embedding(vocab_size, embedding_dim, weights=[embedding_matrix])(inputs)
+        x = layers.Embedding(vocab_size, embedding_dim, weights=[embedding_matrix], mask_zero=True)(inputs)
         x = layers.LSTM(64)(x)
-        x = layers.Dense(256, name='FC1')(x)
+        x = layers.Dense(64, name='FC1')(x)
         x = layers.Activation('relu')(x)
-        x = layers.Dropout(0.5)(x)
+        x = layers.Dropout(0.2)(x)
         x = layers.Dense(1, name='out_layer')(x)
         x = layers.Activation('sigmoid')(x)
         model = tf.keras.Model(inputs=inputs, outputs=x)
@@ -303,16 +310,17 @@ class KerasBiLSTMClassifier(KerasClassifier):
                 vocab_size, embedding_dim,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
-                trainable=True
+                trainable=True,
+                mask_zero=True
             )
         )
 
         # Define parameter
-        n_lstm = 128
+        n_lstm = 32
         drop_lstm = 0.2
         model.add(layers.Bidirectional(layers.LSTM(n_lstm, return_sequences=False)))
+        model.add(layers.Dense(64, name='FC1'))
         model.add(layers.Dropout(drop_lstm))
-        model.add(layers.Dense(16, name='FC1'))
 
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
@@ -330,13 +338,15 @@ class KerasGRUClassifier(KerasClassifier):
                 vocab_size, embedding_dim,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
-                trainable=True
+                trainable=True,
+                mask_zero=True
             )
         )
 
-        model.add(layers.SpatialDropout1D(0.2))
-        model.add(layers.GRU(128, return_sequences=False))
+        # model.add(layers.SpatialDropout1D(0.2))
+        model.add(layers.GRU(64, return_sequences=False))
         model.add(layers.Dropout(0.2))
+        model.add(layers.Dense(64, name='FC1'))
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
 
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
@@ -354,15 +364,16 @@ class KerasCNNandLSTMClassifier(KerasClassifier):
                 vocab_size, embedding_dim,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
-                trainable=True
+                trainable=True,
+                mask_zero=True
             )
         )
 
-        model.add(layers.Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
+        model.add(layers.Conv1D(filters=128, kernel_size=3, padding='same', activation='relu'))
         model.add(layers.MaxPooling1D(pool_size=2))
-        # model.add(layers.Bidirectional(layers.GRU(100, return_sequences=False)))
-
-        model.add(layers.GRU(100))
+        model.add(layers.Dropout(0.25))
+        model.add(layers.Bidirectional(layers.GRU(16, return_sequences=False)))
+        model.add(layers.Dense(32, activation="relu"))
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
 
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
