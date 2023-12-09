@@ -9,7 +9,7 @@ from sklearn.metrics import roc_curve, auc
 from classification.evaluation.evaluation import evaluate
 from classification.models import ClassifierModel
 from classification.utils import LineLevelToFileLevelDatasetMapper
-from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
+from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from data.models import Project
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
 from embedding.word2vec.word2vec import KerasTokenizer, GensimWord2VecModel
@@ -19,7 +19,8 @@ def main():
     project = Project(
         name="activemq",
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
-        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
+        method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
     )
     # token_extractor = CustomTokenExtractor(False, None)
     # token_extractor = ASTExtractor()

@@ -214,6 +214,48 @@ class ASTExtractor(TokenExtractor):
                     tokens.append(node.__class__.__name__)
         return tokens
 
+    def extract_methods_data(self, input_text):
+        tree = javalang.parse.parse(input_text)
+        input_text_lines = input_text.splitlines()
+
+        methods_data = []
+        current_method = None
+        method_tokens = []
+        start_line = None
+        last_line = None
+        for path, node in tree:
+            if isinstance(node, javalang.parser.tree.MethodDeclaration):
+                if current_method is not None:
+                    if last_line is not None and last_line >= start_line:
+                        end_line = last_line + 1
+                    else:
+                        end_line = node.position.line - 1
+
+                    method_lines = str.join('\n', input_text_lines[start_line - 1:end_line])
+                    methods_data.append((start_line, end_line, method_lines, method_tokens))
+                current_method = node
+                start_line = current_method.position.line
+                method_tokens = []
+
+            if hasattr(node, 'position') and node.position:
+                last_line = node.position.line
+
+            if not self.cross_project and isinstance(node, javalang.parser.tree.ClassCreator):
+                method_tokens.append(node.type.name)
+            if isinstance(node, ASTExtractor.desired_nodes):
+                if not self.cross_project and isinstance(node, ASTExtractor.within_project_nodes):
+                    if isinstance(node,
+                                  (javalang.parser.tree.MethodInvocation, javalang.parser.tree.SuperMethodInvocation)):
+                        method_tokens.append(f'{node.member}()')
+                    else:
+                        method_tokens.append(node.name)
+                else:
+                    method_tokens.append(node.__class__.__name__)
+        if start_line:
+            method_lines = str.join('\n', input_text_lines[start_line - 1:last_line + 1])
+            methods_data.append((start_line, last_line + 1, method_lines, method_tokens))
+        return methods_data
+
 
 def test():
     input_text = """
@@ -1124,6 +1166,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
     """
     tree = javalang.parse.parse(input_text)
     # check_tree(tree)
+    methods_data = ASTExtractor(False).extract_methods_data(input_text)
     print(str.join(',', ASTExtractor(False).extract_tokens(input_text)))
 
 

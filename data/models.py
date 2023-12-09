@@ -3,6 +3,16 @@ import pandas as pd
 import os
 
 from data.utils import CommentDetector, is_empty_line, get_buggy_lines_dataset_path
+from embedding.preprocessing.token_extraction import ASTExtractor
+
+
+class MethodLevelDatasetImporter:
+    def get_method_level_dataset(self):
+        raise NotImplementedError()
+
+    def get_processed_method_level_dataset(self):
+        df = self.get_method_level_dataset()
+        return df.rename(columns={'SRC': 'text', 'Bug': 'label'})
 
 
 class FileLevelDatasetImporter:
@@ -48,7 +58,7 @@ class AggregatedDatasetImporter(LineLevelDatasetImporter, FileLevelDatasetImport
         return pd.concat(dfs, ignore_index=True)
 
 
-class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
+class Project(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileLevelDatasetImporter):
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
                           'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1',
@@ -81,13 +91,15 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
         'lucene-new': ['lucene-2.0', 'lucene-2.2']
     }
 
-    def __init__(self, name, line_level_dataset_save_dir, file_level_dataset_dir):
+    def __init__(self, name, line_level_dataset_save_dir, file_level_dataset_dir, method_level_dataset_dir):
         self.line_level_dataset_save_dir = line_level_dataset_save_dir
         self.file_level_dataset_dir = file_level_dataset_dir
+        self.method_level_dataset_dir = method_level_dataset_dir
         self.name = name
 
     @staticmethod
-    def get_project_releases(project_name, line_level_dataset_save_dir, file_level_dataset_save_dir):
+    def get_project_releases(project_name, line_level_dataset_save_dir, file_level_dataset_save_dir,
+                             method_level_dataset_dir):
         project_releases = []
         for release_name in Project.releases_by_project_name[project_name]:
             project_release = ProjectRelease(
@@ -95,7 +107,8 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
                 release_name=release_name,
                 line_level_bug_repository=LineLevelBugRepository(release_name),
                 line_level_dataset_save_dir=line_level_dataset_save_dir,
-                file_level_dataset_save_dir=file_level_dataset_save_dir
+                file_level_dataset_save_dir=file_level_dataset_save_dir,
+                method_level_dataset_dir=method_level_dataset_dir
             )
             project_releases.append(project_release)
         return project_releases
@@ -105,7 +118,8 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
         project_releases = Project.get_project_releases(
             project_name=self.name,
             line_level_dataset_save_dir=self.line_level_dataset_save_dir,
-            file_level_dataset_save_dir=self.file_level_dataset_dir
+            file_level_dataset_save_dir=self.file_level_dataset_dir,
+            method_level_dataset_dir=self.method_level_dataset_dir
         )
 
         for project_release in project_releases:
@@ -130,7 +144,8 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
             project_name=self.name,
             release_name=train_release,
             line_level_bug_repository=LineLevelBugRepository(train_release),
-            file_level_dataset_save_dir=self.file_level_dataset_dir
+            file_level_dataset_save_dir=self.file_level_dataset_dir,
+            method_level_dataset_dir=self.method_level_dataset_dir
         )
 
     def get_validation_release(self):
@@ -147,15 +162,16 @@ class Project(LineLevelDatasetImporter, FileLevelDatasetImporter):
                     project_name=self.name,
                     release_name=release,
                     line_level_bug_repository=LineLevelBugRepository(release),
+                    method_level_dataset_dir=self.method_level_dataset_dir
                 )
             )
 
         return output
 
 
-class ProjectRelease(LineLevelDatasetImporter, FileLevelDatasetImporter):
+class ProjectRelease(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileLevelDatasetImporter):
     def __init__(self, project_name, release_name, line_level_dataset_save_dir=None, file_level_dataset_save_dir=None,
-                 line_level_bug_repository=None, file_level_bug_repository=None):
+                 line_level_bug_repository=None, file_level_bug_repository=None, method_level_dataset_dir=None):
 
         self.line_level_dataset_save_dir = line_level_dataset_save_dir
         self.file_level_dataset_dir = file_level_dataset_save_dir
@@ -163,10 +179,18 @@ class ProjectRelease(LineLevelDatasetImporter, FileLevelDatasetImporter):
         self.release_name = release_name
         self.line_level_bug_repository = line_level_bug_repository
         self.file_level_bug_repository = file_level_bug_repository
+        self.method_level_dataset_dir = method_level_dataset_dir
 
     def get_file_level_dataset(self):
         try:
             file_path = self.get_file_level_dataset_path()
+            return pd.read_csv(file_path, encoding='latin')
+        except FileNotFoundError:
+            return None
+
+    def get_method_level_dataset(self):
+        try:
+            file_path = self.get_method_level_dataset_path()
             return pd.read_csv(file_path, encoding='latin')
         except FileNotFoundError:
             return None
@@ -196,8 +220,29 @@ class ProjectRelease(LineLevelDatasetImporter, FileLevelDatasetImporter):
         all_df.to_csv(self.get_line_level_dataset_path(), index=False)
         print('finish release {}'.format(self.release_name))
 
+    def export_method_level_dataset(self):
+        preprocessed_df_list = []
+        source_code_files = SourceCodeFile.from_file_level_dataset(
+            file_level_dataset=self.get_file_level_dataset(),
+            line_level_dataset_save_dir=self.line_level_dataset_save_dir,
+            line_level_bug_repository=self.line_level_bug_repository
+        )
+
+        for source_code_file in source_code_files:
+            source_code_file: SourceCodeFile
+            code_df = source_code_file.get_method_level_dataset()
+            if len(code_df) != 0:
+                preprocessed_df_list.append(code_df)
+
+        all_df = pd.concat(preprocessed_df_list)
+        all_df.to_csv(self.get_method_level_dataset_path(), index=False)
+        print('finish release {}'.format(self.release_name))
+
     def get_line_level_dataset_path(self):
         return os.path.join(self.line_level_dataset_save_dir, self.release_name + ".csv")
+
+    def get_method_level_dataset_path(self):
+        return os.path.join(self.method_level_dataset_dir, self.release_name + ".csv")
 
     def get_file_level_dataset_path(self):
         return os.path.join(self.file_level_dataset_dir, self.release_name + '_ground-truth-files_dataset.csv')
@@ -300,5 +345,50 @@ class SourceCodeFile(LineLevelDatasetImporter):
         if self.is_buggy:
             buggy_lines = self.line_level_bug_repository.get_file_buggy_lines(self.filename)
             df['label'] = df['line_number'].isin(buggy_lines)
+
+        return df
+
+    def get_method_level_dataset(self):
+        df = pd.DataFrame()
+
+        try:
+            methods_data = ASTExtractor(cross_project=False).extract_methods_data(self.code)
+        except:
+            return df
+        if self.is_buggy:
+            buggy_lines = self.line_level_bug_repository.get_file_buggy_lines(self.filename)
+        else:
+            buggy_lines = []
+
+        start_lines = []
+        end_lines = []
+        method_texts = []
+        is_buggy = []
+        method_asts = []
+        for method_data in methods_data:
+            start_line, end_line, method_text, method_ast_tokens = method_data
+            is_buggy_method = False
+            for buggy_line in buggy_lines:
+                if start_line <= buggy_line <= end_line:
+                    is_buggy_method = True
+
+            start_lines.append(start_line)
+            end_lines.append(end_line)
+            method_texts.append(method_text)
+            is_buggy.append(is_buggy_method)
+            method_asts.append(str.join(',', method_ast_tokens))
+
+        if 'test' in self.filename:
+            is_test = True
+        else:
+            is_test = False
+
+        df['filename'] = [self.filename] * len(method_texts)
+        df['is_test_file'] = [is_test] * len(method_texts)
+        df['start_line'] = start_lines
+        df['end_line'] = end_lines
+        df['label'] = is_buggy
+        df['text'] = method_texts
+        df['ast'] = method_asts
 
         return df

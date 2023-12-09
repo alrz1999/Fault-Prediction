@@ -1,4 +1,4 @@
-from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR
+from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from data.models import Project
 from pipeline.models import PipelineStage, Pipeline
 
@@ -19,7 +19,8 @@ if __name__ == "__main__":
     project = Project(
         name="activemq",
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
-        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
+        method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
     )
 
     stages = [
