@@ -1,7 +1,6 @@
 from data.models import Project
-from embedding.models import EmbeddingModel
+from embedding.models import EmbeddingModel, GensimWord2VecModel
 from embedding.preprocessing.token_extraction import CustomTokenExtractor
-from embedding.word2vec.word2vec import GensimWord2VecModel
 from config import LINE_LEVEL_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from pipeline.datas.line_level import LineLevelDatasetImporterStage
 from pipeline.embedding.embedding_model import EmbeddingModelTrainingStage

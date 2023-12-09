@@ -14,7 +14,7 @@ from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
 
-from embedding.word2vec.word2vec import GensimWord2VecModel, KerasTokenizer, SklearnCountTokenizer, KerasTextVectorizer
+from embedding.models import GensimWord2VecModel, KerasTokenizer, SklearnCountTokenizer, KerasTextVectorizer
 from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
 from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage, \
     IndexToVecMatrixAdderStage

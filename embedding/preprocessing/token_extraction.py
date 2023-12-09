@@ -1164,51 +1164,8 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
     }
 }
     """
-    tree = javalang.parse.parse(input_text)
-    # check_tree(tree)
-    methods_data = ASTExtractor(False).extract_methods_data(input_text)
     print(str.join(',', ASTExtractor(False).extract_tokens(input_text)))
-
-
-def check_tree(tree):
-    depth = 1
-    final_str = ""
-    for path, node in tree:
-        print("----------------------------------------------------")
-
-        if len(path) < depth:
-            final_str += "\n"
-        depth = len(path)
-        if hasattr(node, 'modifiers') and len(node.modifiers) > 0:
-            final_str += f" {list(node.modifiers)[0]}"
-        if hasattr(node, 'return_type'):
-            if node.return_type is None:
-                final_str += " void "
-        if isinstance(node, javalang.parser.tree.ClassDeclaration):
-            final_str += " class "
-        if hasattr(node, 'name'):
-            final_str += f" {node.name} "
-        if hasattr(node, 'value'):
-            final_str += f" {node.value}"
-
-        print(type(path), len(path))
-        for x in path:
-            if isinstance(x, list):
-                print([type(y) for y in x])
-            else:
-                print(type(x))
-        print(node.__class__.__name__)
-        print(node)
-        print(node.children)
-        print(node.position)
-        print("----------------------------------------------------")
-    print(final_str)
 
 
 if __name__ == "__main__":
     test()
-    # TODO
-    # return file level tokens
-    # return class level tokens
-    # return method level tokens
-    # return line level tokens

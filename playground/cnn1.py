@@ -12,7 +12,7 @@ from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import LINE_LEVEL_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from data.models import Project
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
-from embedding.word2vec.word2vec import KerasTokenizer, GensimWord2VecModel
+from embedding.models import KerasTokenizer, GensimWord2VecModel
 
 
 def main():
