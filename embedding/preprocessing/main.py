@@ -1,4 +1,4 @@
-from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR, METHOD_LEVEL_DATA_SAVE_DIR
+from config import LINE_LEVEL_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from data.models import *
 from pipeline.datas.file_level import FileLevelDatasetImporterStage
 from pipeline.models import Pipeline, StageData
@@ -8,7 +8,7 @@ from token_extraction import *
 def main():
     project = Project(
         name="activemq",
-        line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
+        line_level_dataset_save_dir=LINE_LEVEL_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
         method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
     )

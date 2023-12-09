@@ -4,7 +4,7 @@ import pandas as pd
 
 from classification.torch_classifier.classifiers import TorchClassifier, TorchHANClassifier
 from classification.utils import LineLevelToFileLevelDatasetMapper
-from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR, METHOD_LEVEL_DATA_SAVE_DIR
+from config import ORIGINAL_FILE_LEVEL_DATA_DIR, LINE_LEVEL_DATA_SAVE_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from data.models import Project, AggregatedDatasetImporter
 from classification.keras_classifiers.classifiers import KerasClassifier, KerasDenseClassifier, \
     KerasDenseClassifierWithEmbedding, KerasDenseClassifierWithExternalEmbedding, KerasCNNClassifierWithEmbedding, \
@@ -92,7 +92,8 @@ def get_classifier_pipeline_data(classifier_cls, train_dataset_name, training_da
 
 def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_data):
     for eval_dataset_importer in eval_dataset_importers:
-        pipeline_data[StageData.Keys.EVALUATION_SOURCE_CODE_DF.value] = import_dataset(eval_dataset_importer, pipeline_data['to_lowercase'])
+        pipeline_data[StageData.Keys.EVALUATION_SOURCE_CODE_DF.value] = import_dataset(eval_dataset_importer,
+                                                                                       pipeline_data['to_lowercase'])
         classifier_prediction_stages = [
             PredictingClassifierStage(
                 eval_dataset_importer.release_name,
@@ -401,6 +402,7 @@ def keras_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
         validation_dataset_importer=eval_dataset_importers[0]
     )
 
+
 def torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 100
     to_lowercase = True
@@ -419,6 +421,7 @@ def torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_im
         epochs=10,
         validation_dataset_importer=eval_dataset_importers[0]
     )
+
 
 def torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
     max_seq_len = 100
@@ -439,23 +442,10 @@ def torch_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
     )
 
 
-def generate_line_level_dfs():
-    for project_name in Project.releases_by_project_name.keys():
-        project = Project(
-            name=project_name,
-            line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
-            file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
-            method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
-        )
-        project.get_train_release().export_method_level_dataset()
-        for release in project.get_eval_releases():
-            release.export_method_level_dataset()
-
-
 def get_cross_release_dataset():
     project = Project(
         name="activemq",
-        line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
+        line_level_dataset_save_dir=LINE_LEVEL_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
         method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
     )
@@ -468,7 +458,7 @@ def get_cross_project_dataset():
     for project_name in Project.releases_by_project_name.keys():
         project = Project(
             name=project_name,
-            line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
+            line_level_dataset_save_dir=LINE_LEVEL_DATA_SAVE_DIR,
             file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
             method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
         )
@@ -483,7 +473,7 @@ def get_cross_project_2_dataset():
 
     train_project = Project(
         name='activemq',
-        line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
+        line_level_dataset_save_dir=LINE_LEVEL_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
         method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
     )
@@ -494,7 +484,7 @@ def get_cross_project_2_dataset():
             continue
         project = Project(
             name=project_name,
-            line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
+            line_level_dataset_save_dir=LINE_LEVEL_DATA_SAVE_DIR,
             file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
             method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
         )
@@ -502,17 +492,15 @@ def get_cross_project_2_dataset():
     return 'cross-project', AggregatedDatasetImporter(train_releases), eval_releases
 
 
-classification_type = ClassificationType.FUNCTION_LEVEL
-dataset_type = DatasetType.FUNCTION_LEVEL
+classification_type = ClassificationType.FILE_LEVEL
+dataset_type = DatasetType.LINE_LEVEL
 
 if __name__ == '__main__':
-    # generate_line_level_dfs()
-
     train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_2_dataset()
 
-    # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
@@ -523,6 +511,6 @@ if __name__ == '__main__':
     # keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)

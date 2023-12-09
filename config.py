@@ -10,7 +10,7 @@ ORIGINAL_DATA_ROOT_DIR = os.path.join(PROJECT_ROOT, 'datasets', 'original')
 ORIGINAL_FILE_LEVEL_DATA_DIR = os.path.join(ORIGINAL_DATA_ROOT_DIR, 'File-level')
 ORIGINAL_BUGGY_LINES_DATA_DIR = os.path.join(ORIGINAL_DATA_ROOT_DIR, 'Line-level')
 
-PREPROCESSED_DATA_SAVE_DIR = os.path.join(PROJECT_ROOT, 'datasets', 'preprocessed_data')
+LINE_LEVEL_DATA_SAVE_DIR = os.path.join(PROJECT_ROOT, 'datasets', 'preprocessed_data', 'Line-level')
 METHOD_LEVEL_DATA_SAVE_DIR = os.path.join(PROJECT_ROOT, 'datasets', 'preprocessed_data', 'Method-level')
 
 # Define paths for saving models and predictions

@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+from pathlib import Path
 
 from data.utils import CommentDetector, is_empty_line, get_buggy_lines_dataset_path
 from embedding.preprocessing.token_extraction import ASTExtractor
@@ -182,25 +183,16 @@ class ProjectRelease(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileL
         self.method_level_dataset_dir = method_level_dataset_dir
 
     def get_file_level_dataset(self):
-        try:
-            file_path = self.get_file_level_dataset_path()
-            return pd.read_csv(file_path, encoding='latin')
-        except FileNotFoundError:
-            return None
+        file_path = self.get_file_level_dataset_path()
+        return pd.read_csv(file_path, encoding='latin')
 
     def get_method_level_dataset(self):
-        try:
-            file_path = self.get_method_level_dataset_path()
-            return pd.read_csv(file_path, encoding='latin')
-        except FileNotFoundError:
-            return None
+        file_path = self.get_method_level_dataset_path()
+        return pd.read_csv(file_path, encoding='latin')
 
     def get_line_level_dataset(self):
-        try:
-            file_path = self.get_line_level_dataset_path()
-            return pd.read_csv(file_path, encoding='latin')
-        except FileNotFoundError:
-            return None
+        file_path = self.get_line_level_dataset_path()
+        return pd.read_csv(file_path, encoding='latin')
 
     def export_line_level_dataset(self):
         preprocessed_df_list = []
@@ -239,12 +231,15 @@ class ProjectRelease(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileL
         print('finish release {}'.format(self.release_name))
 
     def get_line_level_dataset_path(self):
+        Path(self.line_level_dataset_save_dir).mkdir(parents=True, exist_ok=True)
         return os.path.join(self.line_level_dataset_save_dir, self.release_name + ".csv")
 
     def get_method_level_dataset_path(self):
+        Path(self.method_level_dataset_dir).mkdir(parents=True, exist_ok=True)
         return os.path.join(self.method_level_dataset_dir, self.release_name + ".csv")
 
     def get_file_level_dataset_path(self):
+        Path(self.file_level_dataset_dir).mkdir(parents=True, exist_ok=True)
         return os.path.join(self.file_level_dataset_dir, self.release_name + '_ground-truth-files_dataset.csv')
 
 

@@ -2,7 +2,7 @@ from data.models import Project
 from embedding.models import EmbeddingModel
 from embedding.preprocessing.token_extraction import CustomTokenExtractor
 from embedding.word2vec.word2vec import GensimWord2VecModel
-from config import PREPROCESSED_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR, METHOD_LEVEL_DATA_SAVE_DIR
+from config import LINE_LEVEL_DATA_SAVE_DIR, ORIGINAL_FILE_LEVEL_DATA_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from pipeline.datas.line_level import LineLevelDatasetImporterStage
 from pipeline.embedding.embedding_model import EmbeddingModelTrainingStage
 from pipeline.models import Pipeline, StageData
@@ -11,7 +11,7 @@ from pipeline.models import Pipeline, StageData
 def main():
     project = Project(
         name="activemq",
-        line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
+        line_level_dataset_save_dir=LINE_LEVEL_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
         method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
     )
