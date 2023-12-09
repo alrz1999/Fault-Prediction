@@ -86,12 +86,14 @@ class TorchClassifier(ClassifierModel):
         self.embedding_model = embedding_model
 
     @classmethod
-    def train(cls, source_code_df, dataset_name, metadata=None, validation_source_code_df=None):
+    def train(cls, train_df, validation_df=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
         max_seq_len = metadata.get('max_seq_len')
         embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
+
         n_filters = 100
         lr = 0.001
         if embedding_model is not None:
@@ -101,8 +103,8 @@ class TorchClassifier(ClassifierModel):
             vocab_size = metadata.get('vocab_size')
             embedding_dim = metadata.get('embedding_dim')
 
-        train_df = source_code_df
-        valid_df = validation_source_code_df
+        train_df = train_df
+        valid_df = validation_df
 
         train_code, train_label = train_df['text'], train_df['label']
         X_train = embedding_model.text_to_indexes(train_code)
@@ -231,7 +233,7 @@ class TorchHANClassifier(ClassifierModel):
         return weight_tensor
 
     @classmethod
-    def train(cls, source_code_df, dataset_name, metadata=None, validation_source_code_df=None):
+    def train(cls, train_df, validation_df=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -254,8 +256,8 @@ class TorchHANClassifier(ClassifierModel):
             vocab_size = metadata.get('vocab_size')
             embedding_dim = metadata.get('embedding_dim')
 
-        train_df = source_code_df
-        valid_df = validation_source_code_df
+        train_df = train_df
+        valid_df = validation_df
 
         train_code, train_label = train_df['text'], train_df['label']
         valid_code, valid_label = valid_df['text'], valid_df['label']

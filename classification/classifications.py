@@ -80,9 +80,6 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
     evaluation_code_datas = [CodeDataContainer(import_dataset(eval_dataset_importer, to_lowercase))
                              for eval_dataset_importer in eval_dataset_importers]
     metadata = {
-        'training_source_code_df': train_code_data,
-        'validation_source_code_df': validation_code_data,
-        'evaluation_source_code_df': evaluation_code_datas,
         'dataset_name': train_dataset_name,
         'embedding_dim': embedding_dim,
         'max_seq_len': max_seq_len,
@@ -111,10 +108,9 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
             metadata['embedding_matrix'] = embedding_matrix
 
     classifier_model = classifier_cls.train(
-        source_code_df=train_code_data.text_label_df,
-        dataset_name=train_dataset_name,
+        train_df=train_code_data.text_label_df,
         metadata=metadata,
-        validation_source_code_df=validation_code_data.text_label_df
+        validation_df=validation_code_data.text_label_df
     )
     metadata['classifier_model'] = classifier_model
 
