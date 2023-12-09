@@ -2,6 +2,7 @@ import enum
 
 import pandas as pd
 
+from classification.evaluation.evaluation import evaluate
 from classification.torch_classifier.classifiers import TorchClassifier, TorchHANClassifier
 from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, LINE_LEVEL_DATA_SAVE_DIR, METHOD_LEVEL_DATA_SAVE_DIR
@@ -15,11 +16,13 @@ from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
 
 from embedding.models import GensimWord2VecModel, KerasTokenizer, SklearnCountTokenizer, KerasTextVectorizer
-from pipeline.classification.classifier import ClassifierTrainingStage, PredictingClassifierStage
-from pipeline.embedding.embedding_model import EmbeddingModelImporterStage, EmbeddingModelTrainingStage, \
-    IndexToVecMatrixAdderStage
-from pipeline.evaluation.evaluation import EvaluationStage
-from pipeline.models import Pipeline, StageData
+
+
+class CodeDataContainer:
+    def __init__(self, text_label_df):
+        self.text_label_df = text_label_df
+        self.embedding_matrix = None
+        self.ast = None
 
 
 class ClassificationType(enum.Enum):
@@ -69,49 +72,17 @@ def import_dataset(dataset_importer, to_lowercase):
         raise Exception(f'training_type {classification_type} is not supported')
 
 
-def get_embedding_pipeline_data(embedding_cls, embedding_dim, dataset_name, token_extractor, training_data):
-    embedding_stages = [
-        EmbeddingModelTrainingStage(embedding_cls, dataset_name, embedding_dim, token_extractor, perform_export=False),
-    ]
-    embedding_pipeline_data = Pipeline(embedding_stages).run(training_data)
-    return embedding_pipeline_data
-
-
-def get_classifier_pipeline_data(classifier_cls, train_dataset_name, training_data):
-    classifier_stages = [
-        IndexToVecMatrixAdderStage(),
-        ClassifierTrainingStage(
-            classifier_cls,
-            train_dataset_name,
-            perform_export=False
-        )
-    ]
-    training_pipeline_data = Pipeline(classifier_stages).run(training_data)
-    return training_pipeline_data
-
-
-def evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_data):
-    for eval_dataset_importer in eval_dataset_importers:
-        pipeline_data[StageData.Keys.EVALUATION_SOURCE_CODE_DF.value] = import_dataset(eval_dataset_importer,
-                                                                                       pipeline_data['to_lowercase'])
-        classifier_prediction_stages = [
-            PredictingClassifierStage(
-                eval_dataset_importer.release_name,
-                output_columns=['label'],
-                # new_columns={'project': eval_dataset_importer.project_name, 'train': train_dataset_name,
-                #              'test': eval_dataset_importer.release_name},
-                perform_export=False
-            ),
-            EvaluationStage()
-        ]
-
-        Pipeline(classifier_prediction_stages).run(pipeline_data)
-
-
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
              classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
              to_lowercase=False, vocab_size=None, validation_dataset_importer=None):
-    pipeline_data = StageData({
+    train_code_data = CodeDataContainer(import_dataset(train_dataset_importer, to_lowercase))
+    validation_code_data = CodeDataContainer(import_dataset(validation_dataset_importer, to_lowercase))
+    evaluation_code_datas = [CodeDataContainer(import_dataset(eval_dataset_importer, to_lowercase))
+                             for eval_dataset_importer in eval_dataset_importers]
+    metadata = {
+        'training_source_code_df': train_code_data,
+        'validation_source_code_df': validation_code_data,
+        'evaluation_source_code_df': evaluation_code_datas,
         'dataset_name': train_dataset_name,
         'embedding_dim': embedding_dim,
         'max_seq_len': max_seq_len,
@@ -123,37 +94,36 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'perform_k_fold_cross_validation': False,
         'learning_rate': 0.001,
         'dropout_ratio': 0.5
-    })
-
-    train_dataset = import_dataset(train_dataset_importer, to_lowercase)
-    validation_dataset = import_dataset(validation_dataset_importer, to_lowercase)
-    pipeline_data[StageData.Keys.TRAINING_SOURCE_CODE_DF.value] = train_dataset
-    pipeline_data[StageData.Keys.VALIDATION_SOURCE_CODE_DF.value] = validation_dataset
-
-    if classification_type == ClassificationType.FILE_LEVEL:
-        pipeline_data[StageData.Keys.FILE_LEVEL_DF.value] = train_dataset
-        pipeline_data[StageData.Keys.VALIDATION_FILE_LEVEL_DF.value] = validation_dataset
-    elif classification_type == ClassificationType.LINE_LEVEL:
-        pipeline_data[StageData.Keys.LINE_LEVEL_DF.value] = train_dataset
-        pipeline_data[StageData.Keys.VALIDATION_LINE_LEVEL_DF.value] = validation_dataset
+    }
 
     if embedding_cls is not None:
-        pipeline_data = get_embedding_pipeline_data(
-            embedding_cls=embedding_cls,
-            embedding_dim=embedding_dim,
-            dataset_name=train_dataset_name,
-            # dataset_name=project.name, #TODO
-            token_extractor=token_extractor,
-            training_data=pipeline_data
+        embedding_model = embedding_cls.train(
+            texts=train_code_data.text_label_df['text'],
+            metadata=metadata
         )
+        metadata['embedding_model'] = embedding_model
 
-    pipeline_data = get_classifier_pipeline_data(
-        classifier_cls=classifier_cls,
-        train_dataset_name=train_dataset_name,
-        training_data=pipeline_data,
+        word_index = embedding_model.get_word_to_index_dict()
+        vocab_size = embedding_model.get_vocab_size()
+        embedding_dim = embedding_model.get_embedding_dim()
+        embedding_matrix = embedding_model.get_embedding_matrix(word_index, vocab_size, embedding_dim)
+        if embedding_matrix is not None:
+            metadata['embedding_matrix'] = embedding_matrix
+
+    classifier_model = classifier_cls.train(
+        source_code_df=train_code_data.text_label_df,
+        dataset_name=train_dataset_name,
+        metadata=metadata,
+        validation_source_code_df=validation_code_data.text_label_df
     )
+    metadata['classifier_model'] = classifier_model
 
-    evaluate_classifier(eval_dataset_importers, train_dataset_name, pipeline_data)
+    for eval_dataset_importer in eval_dataset_importers:
+        evaluation_code_data = CodeDataContainer(import_dataset(eval_dataset_importer, to_lowercase))
+        predicted_probabilities = classifier_model.predict(evaluation_code_data.text_label_df, metadata=metadata)
+        metadata['prediction_result_df'] = predicted_probabilities
+        true_labels = evaluation_code_data.text_label_df['label']
+        evaluate(true_labels, predicted_probabilities)
 
 
 def mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
@@ -201,8 +171,8 @@ def keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_data
         classifier_cls=KerasDenseClassifier,
         embedding_cls=SklearnCountTokenizer,
         # embedding_cls=KerasTextVectorizer,
-        token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
-        # token_extractor=ASTTokenizer(False),
+        # token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
+        token_extractor=ASTTokenizer(False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
@@ -222,8 +192,8 @@ def keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_impo
         classifier_cls=KerasDenseClassifierWithEmbedding,
         embedding_cls=KerasTokenizer,
         # token_extractor=CustomTokenExtractor(to_lowercase, max_seq_len),
-        token_extractor=ASTExtractor(False),
-        # token_extractor=ASTTokenizer(False),
+        # token_extractor=ASTExtractor(False),
+        token_extractor=ASTTokenizer(False),
         embedding_dim=30,
         max_seq_len=max_seq_len,
         batch_size=32,
@@ -244,8 +214,8 @@ def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dat
         classifier_cls=KerasDenseClassifierWithExternalEmbedding,
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        token_extractor=ASTExtractor(False),
-        # token_extractor=ASTTokenizer(True),
+        # token_extractor=ASTExtractor(False),
+        token_extractor=ASTTokenizer(False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
@@ -500,11 +470,11 @@ if __name__ == '__main__':
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_2_dataset()
 
-    mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)

@@ -5,7 +5,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 
 def evaluate(true_labels, predicted_probabilities):
-    predicted_labels = list([round(x) for x in predicted_probabilities])
+    predicted_labels = list([round(x[0]) for x in predicted_probabilities])
     print(f'predicted_labels = {predicted_labels}')
 
     # Calculate the ROC curve
