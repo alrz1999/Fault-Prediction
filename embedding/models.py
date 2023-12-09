@@ -37,13 +37,13 @@ class EmbeddingModel:
     def get_word_to_index_dict(self):
         raise NotImplementedError()
 
-    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
-        raise NotImplementedError()
-
     def get_vocab_size(self):
         raise NotImplementedError()
 
     def get_embedding_dim(self):
+        raise NotImplementedError()
+
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         raise NotImplementedError()
 
 
@@ -114,6 +114,12 @@ class GensimWord2VecModel(EmbeddingModel):
     def get_word_to_index_dict(self):
         return self.model.wv.key_to_index
 
+    def get_vocab_size(self):
+        return len(self.model.wv.index_to_key)
+
+    def get_embedding_dim(self):
+        return self.embedding_dim
+
     def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         embedding_matrix = np.zeros((vocab_size, embedding_dim))
 
@@ -127,12 +133,6 @@ class GensimWord2VecModel(EmbeddingModel):
         print('Total absent words are', absent_words, 'which is', "%0.2f" % (absent_words * 100 / len(word_index)),
               '% of total words')
         return embedding_matrix
-
-    def get_vocab_size(self):
-        return len(self.model.wv.index_to_key)
-
-    def get_embedding_dim(self):
-        return self.embedding_dim
 
 
 class KerasTokenizer(EmbeddingModel):
@@ -161,14 +161,14 @@ class KerasTokenizer(EmbeddingModel):
     def get_word_to_index_dict(self):
         return self.tokenizer.word_index
 
-    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
-        return None
-
     def get_vocab_size(self):
         return len(self.get_word_to_index_dict()) + 1
 
     def get_embedding_dim(self):
         return self.embedding_dim
+
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
+        return None
 
 
 class SklearnCountTokenizer(EmbeddingModel):
@@ -189,9 +189,6 @@ class SklearnCountTokenizer(EmbeddingModel):
     def text_to_indexes(self, texts):
         return self.count_vectorizer.transform(texts).toarray()
 
-    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
-        return None
-
     def get_vocab_size(self):
         return len(self.count_vectorizer.vocabulary_)
 
@@ -199,6 +196,9 @@ class SklearnCountTokenizer(EmbeddingModel):
         return self.embedding_dim
 
     def get_word_to_index_dict(self):
+        return None
+
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         return None
 
 
@@ -227,9 +227,6 @@ class KerasTextVectorizer(EmbeddingModel):
         # text = tf.expand_dims(text, -1)
         return self.vectorize_layer(texts)
 
-    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
-        return None
-
     def get_vocab_size(self):
         return self.vectorize_layer.vocabulary_size()
 
@@ -237,4 +234,7 @@ class KerasTextVectorizer(EmbeddingModel):
         return self.embedding_dim
 
     def get_word_to_index_dict(self):
+        return None
+
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         return None
