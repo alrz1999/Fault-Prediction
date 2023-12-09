@@ -4,7 +4,7 @@ import pandas as pd
 
 from classification.torch_classifier.classifiers import TorchClassifier, TorchHANClassifier
 from classification.utils import LineLevelToFileLevelDatasetMapper
-from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR
+from config import ORIGINAL_FILE_LEVEL_DATA_DIR, PREPROCESSED_DATA_SAVE_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from data.models import Project, AggregatedDatasetImporter
 from classification.keras_classifiers.classifiers import KerasClassifier, KerasDenseClassifier, \
     KerasDenseClassifierWithEmbedding, KerasDenseClassifierWithExternalEmbedding, KerasCNNClassifierWithEmbedding, \
@@ -32,6 +32,7 @@ class ClassificationType(enum.Enum):
 class DatasetType(enum.Enum):
     FILE_LEVEL = 'FILE_LEVEL'
     LINE_LEVEL = 'LINE_LEVEL'
+    FUNCTION_LEVEL = 'FUNCTION_LEVEL'
 
 
 def import_dataset(dataset_importer, to_lowercase):
@@ -62,6 +63,8 @@ def import_dataset(dataset_importer, to_lowercase):
             return_test_file_lines=return_test_file_lines,
             return_comment_lines=return_comment_lines
         )
+    elif classification_type == ClassificationType.FUNCTION_LEVEL:
+        return dataset_importer.get_processed_method_level_dataset()
     else:
         raise Exception(f'training_type {classification_type} is not supported')
 
@@ -441,18 +444,20 @@ def generate_line_level_dfs():
         project = Project(
             name=project_name,
             line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
-            file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+            file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
+            method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
         )
-        project.get_train_release().export_line_level_dataset()
+        project.get_train_release().export_method_level_dataset()
         for release in project.get_eval_releases():
-            release.export_line_level_dataset()
+            release.export_method_level_dataset()
 
 
 def get_cross_release_dataset():
     project = Project(
-        name="lucene-new",
+        name="activemq",
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
-        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
+        method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
     )
     return project.get_train_release().release_name, project.get_train_release(), project.get_eval_releases()
 
@@ -464,7 +469,8 @@ def get_cross_project_dataset():
         project = Project(
             name=project_name,
             line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
-            file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+            file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
+            method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
         )
         train_releases.append(project.get_train_release())
         eval_releases.extend(project.get_eval_releases())
@@ -478,7 +484,8 @@ def get_cross_project_2_dataset():
     train_project = Project(
         name='activemq',
         line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
-        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+        file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
+        method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
     )
     train_releases.append(train_project.get_train_release())
 
@@ -488,14 +495,15 @@ def get_cross_project_2_dataset():
         project = Project(
             name=project_name,
             line_level_dataset_save_dir=PREPROCESSED_DATA_SAVE_DIR,
-            file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR
+            file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
+            method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
         )
         eval_releases.append(project.get_validation_release())
     return 'cross-project', AggregatedDatasetImporter(train_releases), eval_releases
 
 
-classification_type = ClassificationType.FILE_LEVEL
-dataset_type = DatasetType.FILE_LEVEL
+classification_type = ClassificationType.FUNCTION_LEVEL
+dataset_type = DatasetType.FUNCTION_LEVEL
 
 if __name__ == '__main__':
     # generate_line_level_dfs()
