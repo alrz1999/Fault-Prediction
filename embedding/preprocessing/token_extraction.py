@@ -54,6 +54,12 @@ class CustomTokenExtractor(TokenExtractor):
         return code_line
 
 
+class CommaSplitTokenExtractor(TokenExtractor):
+
+    def extract_tokens(self, input_text):
+        return input_text.split(',')
+
+
 class RawTextTokenExtractor(TokenExtractor):
     def extract_tokens(self, input_text):
         # Split the input text into tokens using whitespace as the delimiter

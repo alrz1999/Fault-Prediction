@@ -25,7 +25,7 @@ class KerasClassifier(ClassifierModel):
         raise NotImplementedError()
 
     @classmethod
-    def train(cls, train_df, validation_df=None, metadata=None):
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -39,15 +39,10 @@ class KerasClassifier(ClassifierModel):
             vocab_size = metadata.get('vocab_size')
             embedding_dim = metadata.get('embedding_dim')
 
-        codes, labels = train_df['text'], train_df['label']
-
-        X_train = embedding_model.text_to_indexes(codes)
-        X_train = pad_sequences(X_train, padding='post', maxlen=max_seq_len)
+        X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
         if max_seq_len is None:
             max_seq_len = X_train.shape[1]
             metadata['max_seq_len'] = max_seq_len
-
-        Y_train = np.array([1 if label == True else 0 for label in labels])
 
         sm = SMOTE(random_state=42)
         X_train, Y_train = sm.fit_resample(X_train, Y_train)
@@ -73,7 +68,7 @@ class KerasClassifier(ClassifierModel):
             epochs=epochs,
             batch_size=batch_size,
             class_weight=class_weight_dict,
-            validation_data=cls.get_validation_data(validation_df, embedding_model, max_seq_len)
+            validation_data=cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len)
         )
         cls.plot_history(history)
         loss, accuracy = model.evaluate(X_train, Y_train, verbose=False)
@@ -115,10 +110,10 @@ class KerasClassifier(ClassifierModel):
         validation_score = np.average(validation_scores)
         print(f'validation_score = {validation_score}')
 
-    def predict(self, df, metadata=None):
+    def predict(self, dataset, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = df['text'], df['label']
+        codes, labels = dataset.get_texts(), dataset.get_labels()
 
         X_test = self.embedding_model.text_to_indexes(codes)
 
@@ -126,8 +121,8 @@ class KerasClassifier(ClassifierModel):
         return self.model.predict(X_test)
 
     @classmethod
-    def get_validation_data(cls, validation_source_code_df, embedding_model, max_seq_len):
-        codes, labels = validation_source_code_df['text'], validation_source_code_df['label']
+    def get_X_and_Y(cls, classification_dataset, embedding_model, max_seq_len):
+        codes, labels = classification_dataset.get_texts(), classification_dataset.get_labels()
 
         X = embedding_model.text_to_indexes(codes)
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
@@ -444,7 +439,7 @@ class KerasHANClassifier(KerasClassifier):
         return model
 
     @classmethod
-    def train(cls, train_df, validation_df=None, metadata=None):
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -463,7 +458,7 @@ class KerasHANClassifier(KerasClassifier):
             vocab_size = metadata.get('vocab_size')
             embedding_dim = metadata.get('embedding_dim')
 
-        codes, labels = train_df['text'], train_df['label']
+        codes, labels = train_dataset.get_texts(), train_dataset.get_labels()
 
         codes_3d = np.zeros((len(codes), KerasHANClassifier.max_sent_num, max_seq_len), dtype='int32')
         for file_idx, file_code in enumerate(codes):
@@ -500,10 +495,10 @@ class KerasHANClassifier(KerasClassifier):
         print("Training Accuracy: {:.4f}".format(accuracy))
         return cls(model, embedding_model)
 
-    def predict(self, df, metadata=None):
+    def predict(self, dataset, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = df['text'], df['label']
+        codes, labels = dataset.get_texts(), dataset.get_labels()
 
         codes_3d = np.zeros((len(codes), KerasHANClassifier.max_sent_num, max_seq_len), dtype='int32')
         for file_idx, file_code in enumerate(codes):

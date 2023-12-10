@@ -19,9 +19,9 @@ class BOWBaseLineClassifier(ClassifierModel):
         self.dataset_name = dataset_name
 
     @classmethod
-    def train(cls, train_df, validation_df=None, metadata=None):
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
         dataset_name = metadata.get('dataset_name')
-        codes, labels = train_df['text'], train_df['label']
+        codes, labels = train_dataset.get_texts(), train_dataset.get_labels()
         vectorizer = CountVectorizer()
         vectorizer.fit(codes)
         X = vectorizer.transform(codes).toarray()
@@ -61,27 +61,12 @@ class BOWBaseLineClassifier(ClassifierModel):
 
         return os.path.join(BOW_SAVE_MODEL_DIR, re.sub('-.*', '', dataset_name) + "-BoW-model.bin")
 
-    def predict(self, df, metadata=None):
-        test_code, labels = df['text'], df['label']
+    def predict(self, dataset, metadata=None):
+        test_code, labels = dataset.get_texts(), dataset.get_labels()
 
         X = self.vectorizer.transform(test_code).toarray()
 
         return self.model.predict(X)
-
-        # Y_prob = self.model.predict_proba(X)
-        # Y_prob = list(Y_prob[:, 1])
-        #
-        # result_df = pd.DataFrame()
-        # result_df['project'] = [rel.project_name] * len(Y_pred)
-        # result_df['train'] = [self.train_release_name] * len(Y_pred)
-        # result_df['test'] = [rel.release_name] * len(Y_pred)
-        # result_df['file-level-ground-truth'] = train_label
-        # result_df['prediction-prob'] = Y_prob
-        # result_df['prediction-label'] = Y_pred
-        #
-        # result_df.to_csv(self.get_result_dataset_path(rel.release_name), index=False)
-        #
-        # print('finish', rel.release_name)
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):

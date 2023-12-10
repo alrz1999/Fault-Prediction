@@ -12,8 +12,8 @@ def main():
     )
     tokenizer = CFGTokenExtractor()
 
-    pipeline_data = project.get_train_release().get_processed_file_level_dataset()
-    files_tokens = tokenizer.extract_tokens(pipeline_data['text'].tolist()[0])
+    file_level_dataset = project.get_train_release().get_processed_file_level_dataset()
+    files_tokens = tokenizer.extract_tokens(file_level_dataset['text'].tolist()[0])
     print(files_tokens)
 
 

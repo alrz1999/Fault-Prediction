@@ -12,8 +12,8 @@ def main():
     )
     token_extractor = CustomTokenExtractor(to_lowercase=True, max_seq_len=None)
 
-    pipeline_data = project.get_train_release().get_processed_line_level_dataset()
-    print(token_extractor.extract_tokens(pipeline_data['text'].tolist()[0]))
+    line_level_dataset = project.get_train_release().get_processed_line_level_dataset()
+    print(token_extractor.extract_tokens(line_level_dataset['text'].tolist()[0]))
 
 
 if __name__ == '__main__':

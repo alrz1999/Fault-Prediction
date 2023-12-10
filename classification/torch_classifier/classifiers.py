@@ -86,7 +86,7 @@ class TorchClassifier(ClassifierModel):
         self.embedding_model = embedding_model
 
     @classmethod
-    def train(cls, train_df, validation_df=None, metadata=None):
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -103,10 +103,7 @@ class TorchClassifier(ClassifierModel):
             vocab_size = metadata.get('vocab_size')
             embedding_dim = metadata.get('embedding_dim')
 
-        train_df = train_df
-        valid_df = validation_df
-
-        train_code, train_label = train_df['text'], train_df['label']
+        train_code, train_label = train_dataset.get_texts(), train_dataset.get_labels()
         X_train = embedding_model.text_to_indexes(train_code)
         X_train = pad_sequences(X_train, padding='post', maxlen=max_seq_len)
         if max_seq_len is None:
@@ -117,7 +114,7 @@ class TorchClassifier(ClassifierModel):
         train_tensor_data = TensorDataset(torch.from_numpy(X_train), torch.from_numpy(np.array(Y_train).astype(int)))
         train_dl = DataLoader(train_tensor_data, shuffle=True, batch_size=batch_size, drop_last=True)
 
-        valid_code, valid_label = valid_df['text'], valid_df['label']
+        valid_code, valid_label = validation_dataset.get_texts(), validation_dataset.get_labels()
         X_valid = embedding_model.text_to_indexes(valid_code)
         X_valid = pad_sequences(X_valid, padding='post', maxlen=max_seq_len)
         Y_valid = np.array([1 if label == True else 0 for label in valid_label])
@@ -182,15 +179,15 @@ class TorchClassifier(ClassifierModel):
         print('finished training model of', dataset_name)
         return cls(net, embedding_model)
 
-    def predict(self, df, metadata=None):
+    def predict(self, dataset, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
         batch_size = metadata.get('batch_size')
 
         net = self.net
         # net = net.cuda()
-        test_df = df
+        test_df = dataset
 
-        code, labels = test_df['text'], test_df['label']
+        code, labels = test_df.get_texts(), test_df.get_labels()
         X = self.embedding_model.text_to_indexes(code)
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
 
@@ -233,7 +230,7 @@ class TorchHANClassifier(ClassifierModel):
         return weight_tensor
 
     @classmethod
-    def train(cls, train_df, validation_df=None, metadata=None):
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -256,11 +253,11 @@ class TorchHANClassifier(ClassifierModel):
             vocab_size = metadata.get('vocab_size')
             embedding_dim = metadata.get('embedding_dim')
 
-        train_df = train_df
-        valid_df = validation_df
+        train_dataset = train_dataset
+        valid_df = validation_dataset
 
-        train_code, train_label = train_df['text'], train_df['label']
-        valid_code, valid_label = valid_df['text'], valid_df['label']
+        train_code, train_label = train_dataset.get_texts(), train_dataset.get_labels()
+        valid_code, valid_label = valid_df.get_texts(), valid_df.get_labels()
 
         x_train_vec = cls.get_codes_3d(embedding_model, max_seq_len, train_code)
         x_valid_vec = cls.get_codes_3d(embedding_model, max_seq_len, valid_code)
@@ -362,7 +359,7 @@ class TorchHANClassifier(ClassifierModel):
 
         return codes_3d
 
-    def predict(self, df, metadata=None):
+    def predict(self, dataset, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
         batch_size = metadata.get('batch_size')
 
@@ -371,9 +368,9 @@ class TorchHANClassifier(ClassifierModel):
         # model = model.cuda()
         model.eval()
 
-        test_df = df
+        test_df = dataset
 
-        code, labels = test_df['text'], test_df['label']
+        code, labels = test_df.get_texts(), test_df.get_labels()
         x_vec = self.get_codes_3d(self.embedding_model, max_seq_len, code)
         Y = np.array([1 if label == True else 0 for label in labels])
 

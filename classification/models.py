@@ -3,6 +3,19 @@ import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
 
+class ClassificationDataset:
+    def __init__(self, text_label_df):
+        self.text_label_df = text_label_df
+        self.embedding_matrix = None
+        self.ast = None
+
+    def get_texts(self):
+        return self.text_label_df['ast']
+
+    def get_labels(self):
+        return self.text_label_df['label']
+
+
 class ClassifierModel:
     import matplotlib.pyplot as plt
     plt.style.use('ggplot')
@@ -37,7 +50,8 @@ class ClassifierModel:
         plt.show()
 
     @classmethod
-    def train(cls, train_df, validation_df=None, metadata=None):
+    def train(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
+              metadata=None):
         raise NotImplementedError()
 
     @classmethod
@@ -51,7 +65,7 @@ class ClassifierModel:
     def export_model(self):
         raise NotImplementedError()
 
-    def predict(self, df, metadata=None):
+    def predict(self, dataset: ClassificationDataset, metadata=None):
         raise NotImplementedError()
 
     @classmethod

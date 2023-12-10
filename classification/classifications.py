@@ -3,6 +3,7 @@ import enum
 import pandas as pd
 
 from classification.evaluation.evaluation import evaluate
+from classification.models import ClassificationDataset
 from classification.torch_classifier.classifiers import TorchClassifier, TorchHANClassifier
 from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, LINE_LEVEL_DATA_SAVE_DIR, METHOD_LEVEL_DATA_SAVE_DIR
@@ -13,17 +14,11 @@ from classification.keras_classifiers.classifiers import KerasClassifier, KerasD
     KerasHANClassifier
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
-from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor
+from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor, \
+    CommaSplitTokenExtractor
 
 from embedding.models import GensimWord2VecModel, KerasTokenizer, SklearnCountTokenizer, KerasTextVectorizer, \
     EmbeddingModel
-
-
-class CodeDataContainer:
-    def __init__(self, text_label_df):
-        self.text_label_df = text_label_df
-        self.embedding_matrix = None
-        self.ast = None
 
 
 class ClassificationType(enum.Enum):
@@ -83,12 +78,12 @@ def get_embedding_matrix(embedding_model: EmbeddingModel):
     )
 
 
-def get_embedding_model(embedding_cls, metadata, train_code_data):
+def get_embedding_model(embedding_cls: EmbeddingModel, metadata, train_dataset):
     if embedding_cls is None:
         return None
 
     return embedding_cls.train(
-        texts=train_code_data.text_label_df['text'],
+        texts=train_dataset.get_texts(),
         metadata=metadata
     )
 
@@ -96,8 +91,8 @@ def get_embedding_model(embedding_cls, metadata, train_code_data):
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
              classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
              to_lowercase=False, vocab_size=None, validation_dataset_importer=None):
-    train_code_data = CodeDataContainer(import_dataset(train_dataset_importer, to_lowercase))
-    validation_code_data = CodeDataContainer(import_dataset(validation_dataset_importer, to_lowercase))
+    train_dataset = ClassificationDataset(import_dataset(train_dataset_importer, to_lowercase))
+    validation_dataset = ClassificationDataset(import_dataset(validation_dataset_importer, to_lowercase))
 
     metadata = {
         'dataset_name': train_dataset_name,
@@ -113,22 +108,22 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'dropout_ratio': 0.5
     }
 
-    embedding_model = get_embedding_model(embedding_cls, metadata, train_code_data)
+    embedding_model = get_embedding_model(embedding_cls, metadata, train_dataset)
     metadata['embedding_model'] = embedding_model
 
     embedding_matrix = get_embedding_matrix(embedding_model)
     metadata['embedding_matrix'] = embedding_matrix
 
     classifier_model = classifier_cls.train(
-        train_df=train_code_data.text_label_df,
-        validation_df=validation_code_data.text_label_df,
+        train_dataset=train_dataset,
+        validation_dataset=validation_dataset,
         metadata=metadata,
     )
 
     for eval_dataset_importer in eval_dataset_importers:
-        evaluation_code_data = CodeDataContainer(import_dataset(eval_dataset_importer, to_lowercase))
-        predicted_probabilities = classifier_model.predict(evaluation_code_data.text_label_df, metadata=metadata)
-        true_labels = evaluation_code_data.text_label_df['label']
+        evaluation_dataset = ClassificationDataset(import_dataset(eval_dataset_importer, to_lowercase))
+        predicted_probabilities = classifier_model.predict(evaluation_dataset, metadata=metadata)
+        true_labels = evaluation_dataset.get_labels()
         evaluate(true_labels, predicted_probabilities)
 
 
