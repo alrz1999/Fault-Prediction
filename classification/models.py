@@ -1,16 +1,28 @@
+import enum
+
 import matplotlib.pyplot as plt
 
 plt.style.use('ggplot')
 
 
+class DatasetType(enum.Enum):
+    FILE_LEVEL = 'FILE_LEVEL'
+    LINE_LEVEL = 'LINE_LEVEL'
+    FUNCTION_LEVEL = 'FUNCTION_LEVEL'
+
+
 class ClassificationDataset:
-    def __init__(self, text_label_df):
+    def __init__(self, text_label_df, dataset_type):
         self.text_label_df = text_label_df
+        self.dataset_type = dataset_type
         self.embedding_matrix = None
         self.ast = None
 
     def get_texts(self):
-        return self.text_label_df['ast']
+        if self.dataset_type == DatasetType.FUNCTION_LEVEL:
+            return self.text_label_df['ast']
+        else:
+            return self.text_label_df['text']
 
     def get_labels(self):
         return self.text_label_df['label']

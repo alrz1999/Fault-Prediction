@@ -3,7 +3,7 @@ import enum
 import pandas as pd
 
 from classification.evaluation.evaluation import evaluate
-from classification.models import ClassificationDataset
+from classification.models import ClassificationDataset, DatasetType
 from classification.torch_classifier.classifiers import TorchClassifier, TorchHANClassifier
 from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, LINE_LEVEL_DATA_SAVE_DIR, METHOD_LEVEL_DATA_SAVE_DIR
@@ -26,12 +26,6 @@ class ClassificationType(enum.Enum):
     CLASS_LEVEL = 'CLASS_LEVEL'
     FUNCTION_LEVEL = 'FUNCTION_LEVEL'
     LINE_LEVEL = 'LINE_LEVEL'
-
-
-class DatasetType(enum.Enum):
-    FILE_LEVEL = 'FILE_LEVEL'
-    LINE_LEVEL = 'LINE_LEVEL'
-    FUNCTION_LEVEL = 'FUNCTION_LEVEL'
 
 
 def import_dataset(dataset_importer, to_lowercase):
@@ -91,8 +85,8 @@ def get_embedding_model(embedding_cls: EmbeddingModel, metadata, train_dataset):
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
              classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
              to_lowercase=False, vocab_size=None, validation_dataset_importer=None):
-    train_dataset = ClassificationDataset(import_dataset(train_dataset_importer, to_lowercase))
-    validation_dataset = ClassificationDataset(import_dataset(validation_dataset_importer, to_lowercase))
+    train_dataset = ClassificationDataset(import_dataset(train_dataset_importer, to_lowercase), dataset_type)
+    validation_dataset = ClassificationDataset(import_dataset(validation_dataset_importer, to_lowercase), dataset_type)
 
     metadata = {
         'dataset_name': train_dataset_name,
@@ -121,7 +115,7 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
     )
 
     for eval_dataset_importer in eval_dataset_importers:
-        evaluation_dataset = ClassificationDataset(import_dataset(eval_dataset_importer, to_lowercase))
+        evaluation_dataset = ClassificationDataset(import_dataset(eval_dataset_importer, to_lowercase), dataset_type)
         predicted_probabilities = classifier_model.predict(evaluation_dataset, metadata=metadata)
         true_labels = evaluation_dataset.get_labels()
         evaluate(true_labels, predicted_probabilities)
@@ -215,8 +209,8 @@ def keras_dense_classifier_with_external_embedding(train_dataset_name, train_dat
         classifier_cls=KerasDenseClassifierWithExternalEmbedding,
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        # token_extractor=ASTExtractor(False),
-        token_extractor=ASTTokenizer(False),
+        token_extractor=ASTExtractor(False),
+        # token_extractor=ASTTokenizer(False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
@@ -464,7 +458,7 @@ def get_cross_project_2_dataset():
 
 
 classification_type = ClassificationType.FILE_LEVEL
-dataset_type = DatasetType.LINE_LEVEL
+dataset_type = DatasetType.FILE_LEVEL
 
 if __name__ == '__main__':
     train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
@@ -475,9 +469,9 @@ if __name__ == '__main__':
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
