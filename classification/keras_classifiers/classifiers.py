@@ -2,7 +2,9 @@ import os
 
 import numpy as np
 import tensorflow as tf
-from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import SMOTE, ADASYN
+from imblearn.under_sampling import RandomUnderSampler, TomekLinks, OneSidedSelection, CondensedNearestNeighbour, NearMiss
+from imblearn.combine import SMOTETomek
 from keras import layers, Sequential
 from keras.src import regularizers
 from keras.src.optimizers import Adam
@@ -46,6 +48,18 @@ class KerasClassifier(ClassifierModel):
 
         sm = SMOTE(random_state=42)
         X_train, Y_train = sm.fit_resample(X_train, Y_train)
+
+        # adasyn = ADASYN(random_state=42)
+        # X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+
+        # rus = RandomUnderSampler(random_state=42)
+        # X_train, Y_train = rus.fit_resample(X_train, Y_train)
+
+        # tomek = TomekLinks()
+        # X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+
+        # smotetomek = SMOTETomek(random_state=42)
+        # X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
 
         if metadata.get('perform_k_fold_cross_validation'):
             cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
