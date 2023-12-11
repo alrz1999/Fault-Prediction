@@ -3,10 +3,12 @@ import os
 import numpy as np
 import tensorflow as tf
 from imblearn.over_sampling import SMOTE, ADASYN
-from imblearn.under_sampling import RandomUnderSampler, TomekLinks, OneSidedSelection, CondensedNearestNeighbour, NearMiss
+from imblearn.under_sampling import RandomUnderSampler, TomekLinks, OneSidedSelection, CondensedNearestNeighbour, \
+    NearMiss
 from imblearn.combine import SMOTETomek
 from keras import layers, Sequential
 from keras.src import regularizers
+from keras.src.callbacks import EarlyStopping, ModelCheckpoint
 from keras.src.optimizers import Adam
 from keras.src.utils import pad_sequences
 from sklearn.model_selection import KFold
@@ -33,6 +35,7 @@ class KerasClassifier(ClassifierModel):
         epochs = metadata.get('epochs')
         max_seq_len = metadata.get('max_seq_len')
         embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
 
         if embedding_model is not None:
             vocab_size = embedding_model.get_vocab_size()
@@ -46,14 +49,14 @@ class KerasClassifier(ClassifierModel):
             max_seq_len = X_train.shape[1]
             metadata['max_seq_len'] = max_seq_len
 
-        sm = SMOTE(random_state=42)
-        X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        # sm = SMOTE(random_state=42)
+        # X_train, Y_train = sm.fit_resample(X_train, Y_train)
 
         # adasyn = ADASYN(random_state=42)
         # X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
 
-        # rus = RandomUnderSampler(random_state=42)
-        # X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        rus = RandomUnderSampler(random_state=42)
+        X_train, Y_train = rus.fit_resample(X_train, Y_train)
 
         # tomek = TomekLinks()
         # X_train, Y_train = tomek.fit_resample(X_train, Y_train)
@@ -77,12 +80,16 @@ class KerasClassifier(ClassifierModel):
         class_weight_dict = dict(enumerate(class_weights))
         print(f'class_weight_dict = {class_weight_dict}')
 
+        early_stopping = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
+        model_checkpoint = ModelCheckpoint(filepath=f'models/{cls.__name__}-{dataset_name}.h5', monitor='val_loss', save_best_only=True)
+
         history = model.fit(
             X_train, Y_train,
             epochs=epochs,
             batch_size=batch_size,
             class_weight=class_weight_dict,
-            validation_data=cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len)
+            validation_data=cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len),
+            callbacks=[early_stopping, model_checkpoint]
         )
         cls.plot_history(history)
         loss, accuracy = model.evaluate(X_train, Y_train, verbose=False)

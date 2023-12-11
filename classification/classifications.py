@@ -245,8 +245,8 @@ def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_import
     max_seq_len = None
     to_lowercase = False
     # token_extractor = CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len)
-    # token_extractor = ASTTokenizer(cross_project=False)
-    token_extractor = ASTExtractor(cross_project=False)
+    token_extractor = ASTTokenizer(cross_project=False)
+    # token_extractor = ASTExtractor(cross_project=False)
 
     classify(
         train_dataset_name=train_dataset_name,
