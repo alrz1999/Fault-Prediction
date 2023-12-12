@@ -409,7 +409,7 @@ def torch_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
 
 def get_cross_release_dataset():
     project = Project(
-        name="activemq",
+        name="poi",
         line_level_dataset_save_dir=LINE_LEVEL_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
         method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR

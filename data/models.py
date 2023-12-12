@@ -63,7 +63,7 @@ class Project(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileLevelDat
     all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
                           'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
                           'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1',
-                          'ant': 'ant-1.4', 'lucene-new': 'lucene-2.0',
+                          'ant': 'ant-1.4', 'lucene-new': 'lucene-2.0', 'poi': 'poi-1.5'
                           }
 
     all_eval_releases = {'activemq': ['activemq-5.1.0', 'activemq-5.2.0', 'activemq-5.3.0', 'activemq-5.8.0'],
@@ -75,7 +75,8 @@ class Project(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileLevelDat
                          'lucene': ['lucene-2.9.0', 'lucene-3.0.0', 'lucene-3.1'],
                          'wicket': ['wicket-1.3.0-beta2', 'wicket-1.5.3'],
                          'ant': ['ant-1.6'],
-                         'lucene-new': ['lucene-2.2']
+                         'lucene-new': ['lucene-2.2'],
+                         'poi': ['poi-2.5']
                          }
 
     releases_by_project_name = {
@@ -89,7 +90,8 @@ class Project(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileLevelDat
         'lucene': ['lucene-2.3.0', 'lucene-2.9.0', 'lucene-3.0.0', 'lucene-3.1'],
         'wicket': ['wicket-1.3.0-incubating-beta-1', 'wicket-1.3.0-beta2', 'wicket-1.5.3'],
         'ant': ['ant-1.4', 'ant-1.6'],
-        'lucene-new': ['lucene-2.0', 'lucene-2.2']
+        'lucene-new': ['lucene-2.0', 'lucene-2.2'],
+        'poi': ['poi-1.5', 'poi-2.5']
     }
 
     def __init__(self, name, line_level_dataset_save_dir, file_level_dataset_dir, method_level_dataset_dir):
