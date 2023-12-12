@@ -36,6 +36,8 @@ class KerasClassifier(ClassifierModel):
         max_seq_len = metadata.get('max_seq_len')
         embedding_matrix = metadata.get('embedding_matrix')
         dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        imbalanced_learn_method = metadata.get('imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
 
         if embedding_model is not None:
             vocab_size = embedding_model.get_vocab_size()
@@ -49,20 +51,32 @@ class KerasClassifier(ClassifierModel):
             max_seq_len = X_train.shape[1]
             metadata['max_seq_len'] = max_seq_len
 
-        # sm = SMOTE(random_state=42)
-        # X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
 
-        # adasyn = ADASYN(random_state=42)
-        # X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
-
-        rus = RandomUnderSampler(random_state=42)
-        X_train, Y_train = rus.fit_resample(X_train, Y_train)
-
-        # tomek = TomekLinks()
-        # X_train, Y_train = tomek.fit_resample(X_train, Y_train)
-
-        # smotetomek = SMOTETomek(random_state=42)
-        # X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
+        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+        if imbalanced_learn_method == 'smote':
+            sm = SMOTE(random_state=42)
+            X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'adasyn':
+            adasyn = ADASYN(random_state=42)
+            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'rus':
+            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+            X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'tomek':
+            tomek = TomekLinks()
+            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'nearmiss':
+            near_miss = NearMiss()
+            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'smotetomek':
+            smotetomek = SMOTETomek(random_state=42)
+            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
 
         if metadata.get('perform_k_fold_cross_validation'):
             cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
@@ -76,12 +90,21 @@ class KerasClassifier(ClassifierModel):
             show_summary=True
         )
 
-        class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y_train), y=Y_train)
-        class_weight_dict = dict(enumerate(class_weights))
+        if class_weight_strategy == 'up_weight_majority':
+            if imbalanced_learn_method not in {'nearmiss', 'rus', 'tomek'}:
+                raise Exception(f"imbalanced_learn_method {imbalanced_learn_method} is not a down-sampling so "
+                                f"majority up-weighing is not allowed")
+            class_weight_dict = {0: majority_class_count / desired_majority_count, 1: 1}
+        elif class_weight_strategy == 'up_weight_minority':
+            class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y_train), y=Y_train)
+            class_weight_dict = dict(enumerate(class_weights))
+        else:
+            class_weight_dict = None
         print(f'class_weight_dict = {class_weight_dict}')
 
         early_stopping = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
-        model_checkpoint = ModelCheckpoint(filepath=f'models/{cls.__name__}-{dataset_name}.h5', monitor='val_loss', save_best_only=True)
+        model_checkpoint = ModelCheckpoint(filepath=f'models/{cls.__name__}-{dataset_name}.h5', monitor='val_loss',
+                                           save_best_only=True)
 
         history = model.fit(
             X_train, Y_train,

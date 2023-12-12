@@ -99,7 +99,9 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'to_lowercase': to_lowercase,
         'perform_k_fold_cross_validation': False,
         'learning_rate': 0.001,
-        'dropout_ratio': 0.5
+        'dropout_ratio': 0.5,
+        'class_weight_strategy': None,  # up_weight_majority, up_weight_minority
+        'imbalanced_learn_method': None  # smote, adasyn, rus, tomek, nearmiss, smotetomek
     }
 
     embedding_model = get_embedding_model(embedding_cls, metadata, train_dataset)
