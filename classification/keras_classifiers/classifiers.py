@@ -11,11 +11,11 @@ from keras.src import regularizers
 from keras.src.callbacks import EarlyStopping, ModelCheckpoint
 from keras.src.optimizers import Adam
 from keras.src.utils import pad_sequences
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, cross_validate
 from sklearn.utils import compute_class_weight
 
 from classification.keras_classifiers.attention_with_context import AttentionWithContext
-from classification.models import ClassifierModel
+from classification.models import ClassifierModel, ClassificationDataset
 from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR, KERAS_CNN_SAVE_PREDICTION_DIR
 
 
@@ -555,3 +555,70 @@ class KerasHANClassifier(KerasClassifier):
                 codes_3d[file_idx, line_idx, :] = X
 
         return self.model.predict(codes_3d)
+
+
+class BalancedBaggingUnderSampleClassifier(ClassifierModel):
+    def __init__(self, model, embedding_model):
+        self.model = model
+        self.embedding_model = embedding_model
+    @classmethod
+    def train(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
+              metadata=None):
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        imbalanced_learn_method = metadata.get('imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
+        if max_seq_len is None:
+            max_seq_len = X_train.shape[1]
+            metadata['max_seq_len'] = max_seq_len
+
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
+
+
+        from imblearn.ensemble import BalancedBaggingClassifier
+        from imblearn.under_sampling import RandomUnderSampler
+
+        # Exactly Balanced Bagging
+        ebb = BalancedBaggingClassifier(sampler=RandomUnderSampler())
+        cv_results = cross_validate(ebb, X_train, Y_train, scoring="balanced_accuracy")
+
+        print(f"{cv_results['test_score'].mean():.3f} +/- {cv_results['test_score'].std():.3f}")
+        ebb.fit(X_train, Y_train)
+        return cls(ebb, embedding_model)
+
+    def predict(self, dataset: ClassificationDataset, metadata=None):
+        max_seq_len = metadata.get('max_seq_len')
+
+        codes, labels = dataset.get_texts(), dataset.get_labels()
+
+        X_test = self.embedding_model.text_to_indexes(codes)
+
+        X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
+        return [[x[self.model.classes_.tolist().index(1)]] for x in self.model.predict_proba(X_test)]
+
+    @classmethod
+    def get_X_and_Y(cls, classification_dataset, embedding_model, max_seq_len):
+        codes, labels = classification_dataset.get_texts(), classification_dataset.get_labels()
+
+        X = embedding_model.text_to_indexes(codes)
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
+        Y = np.array([1 if label == True else 0 for label in labels])
+        return X, Y
