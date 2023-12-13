@@ -561,6 +561,7 @@ class BalancedBaggingUnderSampleClassifier(ClassifierModel):
     def __init__(self, model, embedding_model):
         self.model = model
         self.embedding_model = embedding_model
+
     @classmethod
     def train(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
               metadata=None):
@@ -571,7 +572,8 @@ class BalancedBaggingUnderSampleClassifier(ClassifierModel):
         embedding_matrix = metadata.get('embedding_matrix')
         dataset_name = metadata.get('dataset_name')
         class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
-        imbalanced_learn_method = metadata.get('imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+        imbalanced_learn_method = metadata.get(
+            'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
 
         if embedding_model is not None:
             vocab_size = embedding_model.get_vocab_size()
@@ -591,7 +593,6 @@ class BalancedBaggingUnderSampleClassifier(ClassifierModel):
         print(f'majority_class_count: {majority_class_count}')
         desired_majority_count = minority_class_count * 2
         sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
-
 
         from imblearn.ensemble import BalancedBaggingClassifier
         from imblearn.under_sampling import RandomUnderSampler
@@ -613,6 +614,142 @@ class BalancedBaggingUnderSampleClassifier(ClassifierModel):
 
         X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
         return [[x[self.model.classes_.tolist().index(1)]] for x in self.model.predict_proba(X_test)]
+
+    @classmethod
+    def get_X_and_Y(cls, classification_dataset, embedding_model, max_seq_len):
+        codes, labels = classification_dataset.get_texts(), classification_dataset.get_labels()
+
+        X = embedding_model.text_to_indexes(codes)
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
+        Y = np.array([1 if label == True else 0 for label in labels])
+        return X, Y
+
+
+class EnsembleClassifier(ClassifierModel):
+    def __init__(self, model, embedding_model):
+        self.model = model
+        self.embedding_model = embedding_model
+
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        model_input = kwargs.get('model_input')
+
+        embedding_layer = layers.Embedding(
+            input_dim=vocab_size,
+            output_dim=embedding_dim,
+            weights=[embedding_matrix],
+            input_length=max_seq_len,
+            trainable=True,
+            mask_zero=True
+        )(model_input)
+
+        conv_layer = layers.Conv1D(100, 5, padding="same", activation="relu")(embedding_layer)
+        global_max_pooling = layers.GlobalMaxPooling1D()(conv_layer)
+        dropout_layer = layers.Dropout(0.25)(global_max_pooling)
+        dense_layer = layers.Dense(100, activation="relu")(dropout_layer)
+        predictions = layers.Dense(1, activation="sigmoid")(dense_layer)
+
+        model = tf.keras.Model(inputs=model_input, outputs=predictions)
+        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
+        return model
+
+    @classmethod
+    def train(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
+              metadata=None):
+        np.random.seed(42)
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        imbalanced_learn_method = metadata.get(
+            'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
+        if max_seq_len is None:
+            max_seq_len = X_train.shape[1]
+            metadata['max_seq_len'] = max_seq_len
+
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+
+        splits_count = majority_class_count // minority_class_count
+        # splits_count = 3
+
+        X_train_minority_samples = X_train[Y_train == 1]
+        X_train_majority_samples = X_train[Y_train == 0]
+
+        sub_models = []
+        model_input = layers.Input(shape=(max_seq_len,))
+
+        for majority_split in np.array_split(X_train_majority_samples, 1):
+            X_train_balanced = np.vstack((X_train_minority_samples, majority_split))
+            Y_train_balanced = np.hstack((np.ones(len(X_train_minority_samples)), np.zeros(len(majority_split))))
+
+            combined_data = list(zip(X_train_balanced, Y_train_balanced))
+            np.random.shuffle(combined_data)
+
+            X_train_shuffled, Y_train_shuffled = zip(*combined_data)
+
+            X_train_shuffled = np.array(X_train_shuffled)
+            Y_train_shuffled = np.array(Y_train_shuffled)
+
+            sub_model = cls.build_model(vocab_size, embedding_dim, embedding_matrix,
+                                                                    max_seq_len, model_input=model_input)
+            history = sub_model.fit(
+                X_train_shuffled, Y_train_shuffled,
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_data=cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len),
+            )
+            cls.plot_history(history)
+            loss, accuracy = sub_model.evaluate(X_train, Y_train, verbose=False)
+            print("Training Accuracy: {:.4f}".format(accuracy))
+            sub_models.append(sub_model)
+
+        outputs = [model.outputs[0] for model in sub_models]
+        y = layers.Average()(outputs)
+        model = tf.keras.Model(model_input, y, name='ensemble')
+
+        # outputs = layers.Concatenate()(outputs)
+        # x = layers.Dense(50, activation="relu")(outputs)
+        # predictions = layers.Dense(1, activation="sigmoid")(x)
+        # model = tf.keras.Model(model_input, predictions)
+        # model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        #
+        # history = model.fit(
+        #     X_train, Y_train,
+        #     epochs=epochs,
+        #     batch_size=batch_size,
+        #     validation_data=cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len),
+        # )
+        # cls.plot_history(history)
+        # loss, accuracy = model.evaluate(X_train, Y_train, verbose=False)
+        # print("Training Accuracy: {:.4f}".format(accuracy))
+
+        return cls(model, embedding_model)
+
+    def predict(self, dataset: ClassificationDataset, metadata=None):
+        max_seq_len = metadata.get('max_seq_len')
+
+        codes, labels = dataset.get_texts(), dataset.get_labels()
+
+        X_test = self.embedding_model.text_to_indexes(codes)
+
+        X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
+        return self.model.predict(X_test)
 
     @classmethod
     def get_X_and_Y(cls, classification_dataset, embedding_model, max_seq_len):
