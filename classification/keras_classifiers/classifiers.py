@@ -37,7 +37,8 @@ class KerasClassifier(ClassifierModel):
         embedding_matrix = metadata.get('embedding_matrix')
         dataset_name = metadata.get('dataset_name')
         class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
-        imbalanced_learn_method = metadata.get('imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+        imbalanced_learn_method = metadata.get(
+            'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
 
         if embedding_model is not None:
             vocab_size = embedding_model.get_vocab_size()
@@ -366,15 +367,60 @@ class KerasBiLSTMClassifier(KerasClassifier):
         model.summary()
         return model
 
+    # @classmethod
+    # def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+    #     model = Sequential()
+    #     model.add(
+    #         layers.Embedding(
+    #             vocab_size,
+    #             embedding_dim,
+    #             weights=[embedding_matrix],
+    #             input_length=max_seq_len,
+    #             trainable=True,
+    #             mask_zero=True
+    #         )
+    #     )
+    #     model.add(layers.Bidirectional(layers.LSTM(64, return_sequences=True)))
+    #     model.add(layers.Bidirectional(layers.LSTM(32)))
+    #     model.add(layers.Dropout(0.5))
+    #     model.add(layers.Dense(64, activation='relu'))
+    #     model.add(layers.Dense(1, activation='sigmoid'))
+    #     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    #     return model
+
 
 class KerasGRUClassifier(KerasClassifier):
+    # @classmethod
+    # def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+    #     model = Sequential()
+    #
+    #     model.add(
+    #         layers.Embedding(
+    #             vocab_size, embedding_dim,
+    #             weights=[embedding_matrix],
+    #             input_length=max_seq_len,
+    #             trainable=True,
+    #             mask_zero=True
+    #         )
+    #     )
+    #
+    #     # model.add(layers.SpatialDropout1D(0.2))
+    #     model.add(layers.GRU(64, return_sequences=False))
+    #     model.add(layers.Dropout(0.2))
+    #     model.add(layers.Dense(64, activation='relu'))
+    #     model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
+    #
+    #     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    #     model.summary()
+    #     return model
+
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
-
         model.add(
             layers.Embedding(
-                vocab_size, embedding_dim,
+                vocab_size,
+                embedding_dim,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
                 trainable=True,
@@ -382,41 +428,65 @@ class KerasGRUClassifier(KerasClassifier):
             )
         )
 
-        # model.add(layers.SpatialDropout1D(0.2))
-        model.add(layers.GRU(64, return_sequences=False))
-        model.add(layers.Dropout(0.2))
-        model.add(layers.Dense(64, name='FC1'))
-        model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
+        model.add(layers.SpatialDropout1D(0.2))
 
-        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.add(layers.Bidirectional(layers.GRU(64, return_sequences=True)))
+        model.add(layers.Bidirectional(layers.GRU(32, return_sequences=False)))
+        model.add(layers.Dropout(0.5))
+        model.add(layers.Dense(32, activation='relu'))
+        model.add(layers.Dense(1, activation='sigmoid'))
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         model.summary()
         return model
 
 
 class KerasCNNandLSTMClassifier(KerasClassifier):
+    # @classmethod
+    # def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+    #     model = Sequential()
+    #
+    #     model.add(
+    #         layers.Embedding(
+    #             vocab_size, embedding_dim,
+    #             weights=[embedding_matrix],
+    #             input_length=max_seq_len,
+    #             trainable=True,
+    #             mask_zero=True
+    #         )
+    #     )
+    #
+    #     model.add(layers.Conv1D(filters=128, kernel_size=3, padding='same', activation='relu'))
+    #     model.add(layers.MaxPooling1D(pool_size=2))
+    #     model.add(layers.Dropout(0.25))
+    #     model.add(layers.Bidirectional(layers.GRU(16, return_sequences=False)))
+    #     model.add(layers.Dense(32, activation="relu"))
+    #     model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
+    #
+    #     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    #     model.summary()
+    #     return model
+    #
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
-
         model.add(
             layers.Embedding(
-                vocab_size, embedding_dim,
+                vocab_size,
+                embedding_dim,
                 weights=[embedding_matrix],
                 input_length=max_seq_len,
                 trainable=True,
                 mask_zero=True
             )
         )
-
-        model.add(layers.Conv1D(filters=128, kernel_size=3, padding='same', activation='relu'))
+        model.add(layers.Conv1D(filters=64, kernel_size=5, activation='relu'))
         model.add(layers.MaxPooling1D(pool_size=2))
-        model.add(layers.Dropout(0.25))
-        model.add(layers.Bidirectional(layers.GRU(16, return_sequences=False)))
-        model.add(layers.Dense(32, activation="relu"))
-        model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
+        model.add(layers.Bidirectional(layers.GRU(64)))
+        model.add(layers.Dropout(0.5))
+        model.add(layers.Dense(64, activation='relu'))
+        model.add(layers.Dense(1, activation='sigmoid'))
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.summary()
         return model
 
 
@@ -707,7 +777,7 @@ class EnsembleClassifier(ClassifierModel):
             Y_train_shuffled = np.array(Y_train_shuffled)
 
             sub_model = cls.build_model(vocab_size, embedding_dim, embedding_matrix,
-                                                                    max_seq_len, model_input=model_input)
+                                        max_seq_len, model_input=model_input)
             history = sub_model.fit(
                 X_train_shuffled, Y_train_shuffled,
                 epochs=epochs,
