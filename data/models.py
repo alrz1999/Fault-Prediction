@@ -46,7 +46,7 @@ class LineLevelDatasetImporter:
         return df
 
 
-class AggregatedDatasetImporter(LineLevelDatasetImporter, FileLevelDatasetImporter):
+class AggregatedDatasetImporter(LineLevelDatasetImporter, FileLevelDatasetImporter, MethodLevelDatasetImporter):
     def __init__(self, releases):
         self.releases = releases
 
