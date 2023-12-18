@@ -1,16 +1,15 @@
 import numpy as np
-from keras.preprocessing import sequence
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Embedding, LSTM, Bidirectional
+from keras import backend as K
 from keras.datasets import imdb
 from keras.layers import *
 from keras.models import *
-from keras import backend as K
+from keras.preprocessing import sequence
 
 n_unique_words = 10000
 (x_train, y_train), (x_test, y_test) = imdb.load_data(num_words=n_unique_words)
 
 maxlen = 200
+batch_size = 32
 x_train = sequence.pad_sequences(x_train, maxlen=maxlen)
 x_test = sequence.pad_sequences(x_test, maxlen=maxlen)
 y_train = np.array(y_train)

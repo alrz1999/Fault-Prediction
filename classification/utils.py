@@ -1,14 +1,6 @@
 class LineLevelToFileLevelDatasetMapper:
     @classmethod
     def get_code_str(cls, code, to_lowercase):
-        """
-            input
-                code (list): a list of code lines from dataset
-                to_lowercase (bool)
-            output
-                code_str: a code in string format
-        """
-
         code_str = '\n'.join(code)
 
         if to_lowercase:
@@ -18,13 +10,6 @@ class LineLevelToFileLevelDatasetMapper:
 
     @classmethod
     def prepare_data(cls, df, to_lowercase=False):
-        '''
-            input
-                df (DataFrame): input data from get_df() function
-            output
-                all_code_str (list): a list of source code in string format
-                all_file_label (list): a list of label
-        '''
         all_code_str = []
         all_file_label = []
 

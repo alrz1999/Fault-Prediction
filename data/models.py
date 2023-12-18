@@ -234,15 +234,15 @@ class ProjectRelease(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileL
 
     def get_line_level_dataset_path(self):
         Path(self.line_level_dataset_save_dir).mkdir(parents=True, exist_ok=True)
-        return os.path.join(self.line_level_dataset_save_dir, self.release_name + ".csv")
+        return str(os.path.join(self.line_level_dataset_save_dir, self.release_name + ".csv"))
 
     def get_method_level_dataset_path(self):
         Path(self.method_level_dataset_dir).mkdir(parents=True, exist_ok=True)
-        return os.path.join(self.method_level_dataset_dir, self.release_name + ".csv")
+        return str(os.path.join(self.method_level_dataset_dir, self.release_name + ".csv"))
 
     def get_file_level_dataset_path(self):
         Path(self.file_level_dataset_dir).mkdir(parents=True, exist_ok=True)
-        return os.path.join(self.file_level_dataset_dir, self.release_name + '_ground-truth-files_dataset.csv')
+        return str(os.path.join(self.file_level_dataset_dir, self.release_name + '_ground-truth-files_dataset.csv'))
 
 
 class FileLevelBugRepository:
@@ -350,7 +350,7 @@ class SourceCodeFile(LineLevelDatasetImporter):
 
         try:
             methods_data = ASTExtractor(cross_project=False).extract_methods_data(self.code)
-        except:
+        except Exception:
             return df
         if self.is_buggy:
             buggy_lines = self.line_level_bug_repository.get_file_buggy_lines(self.filename)
