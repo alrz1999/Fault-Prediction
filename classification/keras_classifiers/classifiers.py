@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
@@ -10,7 +11,7 @@ from keras import layers, Sequential
 from keras.src import regularizers
 from keras.src.callbacks import EarlyStopping, ModelCheckpoint
 from keras.src.optimizers import Adam
-from keras.src.utils import pad_sequences
+from keras.src.utils import pad_sequences, plot_model
 from sklearn.model_selection import KFold, cross_validate
 from sklearn.utils import compute_class_weight
 
@@ -174,6 +175,11 @@ class KerasClassifier(ClassifierModel):
         Y = np.array([1 if label == True else 0 for label in labels])
         return X, Y
 
+    @classmethod
+    def export_model_plot(cls, model):
+        Path('./plots').mkdir(parents=True, exist_ok=True)
+        plot_model(model, to_file=f'plots/{cls.__name__}.pdf', show_shapes=False, show_layer_names=True)
+
 
 class KerasDenseClassifier(KerasClassifier):
     @classmethod
@@ -185,6 +191,8 @@ class KerasDenseClassifier(KerasClassifier):
 
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         model.summary()
+
+        cls.export_model_plot(model)
         return model
 
     @classmethod
@@ -211,6 +219,8 @@ class KerasDenseClassifierWithEmbedding(KerasClassifier):
 
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         model.summary()
+
+        cls.export_model_plot(model)
         return model
 
 
@@ -248,6 +258,7 @@ class KerasDenseClassifierWithExternalEmbedding(KerasClassifier):
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
 
+        cls.export_model_plot(model)
         return model
 
 
@@ -268,6 +279,8 @@ class KerasCNNClassifier(KerasClassifier):
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         if kwargs.get('show_summary'):
             model.summary()
+
+        cls.export_model_plot(model)
         return model
 
     # @classmethod
@@ -316,6 +329,8 @@ class KerasCNNClassifierWithEmbedding(KerasClassifier):
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
+
+        cls.export_model_plot(model)
         return model
 
     @classmethod
@@ -337,6 +352,8 @@ class KerasLSTMClassifier(KerasClassifier):
         model = tf.keras.Model(inputs=inputs, outputs=x)
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
+
+        cls.export_model_plot(model)
         return model
 
 
@@ -365,6 +382,8 @@ class KerasBiLSTMClassifier(KerasClassifier):
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.summary()
+
+        cls.export_model_plot(model)
         return model
 
     # @classmethod
@@ -437,6 +456,8 @@ class KerasGRUClassifier(KerasClassifier):
         model.add(layers.Dense(1, activation='sigmoid'))
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         model.summary()
+
+        cls.export_model_plot(model)
         return model
 
 
@@ -487,6 +508,7 @@ class KerasCNNandLSTMClassifier(KerasClassifier):
         model.add(layers.Dense(1, activation='sigmoid'))
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
+        cls.export_model_plot(model)
         return model
 
 
@@ -550,6 +572,8 @@ class KerasHANClassifier(KerasClassifier):
         preds = layers.Dense(1, activation='sigmoid')(line_attention)
         model = tf.keras.Model(line_input, preds)
         model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+        cls.export_model_plot(model)
         return model
 
     @classmethod
@@ -792,6 +816,7 @@ class EnsembleClassifier(ClassifierModel):
         outputs = [model.outputs[0] for model in sub_models]
         y = layers.Average()(outputs)
         model = tf.keras.Model(model_input, y, name='ensemble')
+        KerasClassifier.export_model_plot(model)
 
         # outputs = layers.Concatenate()(outputs)
         # x = layers.Dense(50, activation="relu")(outputs)
