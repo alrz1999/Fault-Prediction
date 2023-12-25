@@ -11,7 +11,7 @@ from data.models import Project, AggregatedDatasetImporter
 from classification.keras_classifiers.classifiers import KerasClassifier, KerasDenseClassifier, \
     KerasDenseClassifierWithEmbedding, KerasDenseClassifierWithExternalEmbedding, KerasCNNClassifierWithEmbedding, \
     KerasCNNClassifier, KerasLSTMClassifier, KerasBiLSTMClassifier, KerasGRUClassifier, KerasCNNandLSTMClassifier, \
-    KerasHANClassifier
+    KerasHANClassifier, KerasCapsNetModel
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor, \
@@ -408,6 +408,28 @@ def torch_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
         validation_dataset_importer=eval_dataset_importers[0]
     )
 
+def keras_caps_net(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = None
+    to_lowercase = False
+    # token_extractor = CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len)
+    token_extractor = ASTTokenizer(cross_project=False)
+    # token_extractor = ASTExtractor(cross_project=False)
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=KerasCapsNetModel,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=token_extractor,
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=12,
+        vocab_size=10000,
+        to_lowercase=to_lowercase,
+        validation_dataset_importer=eval_dataset_importers[0]
+    )
 
 def get_cross_release_dataset():
     project = Project(
@@ -459,6 +481,7 @@ def get_cross_project_2_dataset():
     return 'cross-project', AggregatedDatasetImporter(train_releases), eval_releases
 
 
+
 classification_type = ClassificationType.FILE_LEVEL
 dataset_type = DatasetType.FILE_LEVEL
 
@@ -481,3 +504,4 @@ if __name__ == '__main__':
     # keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_caps_net(train_dataset_name, train_dataset_importer, eval_dataset_importers)

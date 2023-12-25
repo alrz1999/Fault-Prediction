@@ -10,6 +10,7 @@ from imblearn.combine import SMOTETomek
 from keras import layers, Sequential
 from keras.src import regularizers
 from keras.src.callbacks import EarlyStopping, ModelCheckpoint
+from keras.src.models import clone_model
 from keras.src.optimizers import Adam
 from keras.src.utils import pad_sequences, plot_model
 from sklearn.model_selection import KFold, cross_validate
@@ -18,6 +19,7 @@ from sklearn.utils import compute_class_weight
 from classification.keras_classifiers.attention_with_context import AttentionWithContext
 from classification.models import ClassifierModel, ClassificationDataset
 from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR, KERAS_CNN_SAVE_PREDICTION_DIR
+from classification.keras_classifiers.capsulelayers import CapsuleLayer, PrimaryCap, Length, Mask
 
 
 class KerasClassifier(ClassifierModel):
@@ -308,6 +310,103 @@ class KerasCNNClassifier(KerasClassifier):
 
 
 class KerasCNNClassifierWithEmbedding(KerasClassifier):
+
+    @classmethod
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        imbalanced_learn_method = metadata.get(
+            'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
+        if max_seq_len is None:
+            max_seq_len = X_train.shape[1]
+            metadata['max_seq_len'] = max_seq_len
+
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
+
+        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+        if imbalanced_learn_method == 'smote':
+            sm = SMOTE(random_state=42)
+            X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'adasyn':
+            adasyn = ADASYN(random_state=42)
+            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'rus':
+            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+            X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'tomek':
+            tomek = TomekLinks()
+            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'nearmiss':
+            near_miss = NearMiss()
+            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'smotetomek':
+            smotetomek = SMOTETomek(random_state=42)
+            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
+
+        if metadata.get('perform_k_fold_cross_validation'):
+            cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
+                                        max_seq_len, vocab_size)
+        tasks = cls.generate_tasks(X_train, Y_train, num_tasks=50,
+                                   task_size=100)  # Example: 50 tasks with 100 samples each
+
+        model = cls.build_model(
+            vocab_size=vocab_size,
+            embedding_dim=embedding_dim,
+            embedding_matrix=embedding_matrix,
+            max_seq_len=max_seq_len,
+            show_summary=True
+        )
+
+        # cls.reptile_update(model, tasks, learning_rate=0.001, k_steps=5, beta=0.1)
+
+        if class_weight_strategy == 'up_weight_majority':
+            if imbalanced_learn_method not in {'nearmiss', 'rus', 'tomek'}:
+                raise Exception(f"imbalanced_learn_method {imbalanced_learn_method} is not a down-sampling so "
+                                f"majority up-weighing is not allowed")
+            class_weight_dict = {0: majority_class_count / desired_majority_count, 1: 1}
+        elif class_weight_strategy == 'up_weight_minority':
+            class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y_train), y=Y_train)
+            class_weight_dict = dict(enumerate(class_weights))
+        else:
+            class_weight_dict = None
+        print(f'class_weight_dict = {class_weight_dict}')
+
+        early_stopping = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
+        model_checkpoint = ModelCheckpoint(filepath=f'models/{cls.__name__}-{dataset_name}.h5', monitor='val_loss',
+                                           save_best_only=True)
+
+        history = model.fit(
+            X_train, Y_train,
+            epochs=epochs,
+            batch_size=batch_size,
+            class_weight=class_weight_dict,
+            validation_data=cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len),
+            callbacks=[early_stopping, model_checkpoint]
+        )
+        cls.plot_history(history)
+        loss, accuracy = model.evaluate(X_train, Y_train, verbose=False)
+        print("Training Accuracy: {:.4f}".format(accuracy))
+        return cls(model, embedding_model)  # Assuming you have your full dataset as X and y
+
     @classmethod
     def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         model = Sequential()
@@ -332,6 +431,62 @@ class KerasCNNClassifierWithEmbedding(KerasClassifier):
 
         cls.export_model_plot(model)
         return model
+
+    @classmethod
+    def reptile_update(cls, model, tasks, learning_rate, k_steps, beta):
+        """
+        Apply the Reptile update rule.
+
+        :param model: The initial model to update.
+        :param tasks: A generator or list of tasks.
+        :param learning_rate: Learning rate for task-specific updates.
+        :param k_steps: Number of steps to train on each task.
+        :param beta: Step size for the meta-update.
+        """
+        # Clone the model to keep the initial parameters intact
+        initial_model = clone_model(model)
+        initial_model.set_weights(model.get_weights())
+
+        for task in tasks:
+            # Get task-specific data
+            x_task, y_task = task
+
+            # Clone the model for task-specific training
+            task_model = clone_model(model)
+            task_model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+            task_model.set_weights(initial_model.get_weights())
+
+            # Train on the task
+            task_model.fit(x_task, y_task, epochs=k_steps, verbose=0)
+
+            # Update the initial parameters with the direction of the task-specific updates
+            for i, (initial_weight, task_weight) in enumerate(
+                    zip(initial_model.get_weights(), task_model.get_weights())):
+                update_direction = task_weight - initial_weight
+                initial_model.get_weights()[i] += beta * update_direction
+
+        # Update the global model's weights after all tasks
+        model.set_weights(initial_model.get_weights())
+
+    @classmethod
+    def generate_tasks(cls, X, y, num_tasks, task_size):
+        """
+        Generate a list of tasks for binary classification.
+
+        :param X: Input features.
+        :param y: Labels.
+        :param num_tasks: Number of tasks to generate.
+        :param task_size: Number of samples in each task.
+        :return: A list of tasks, where each task is a tuple (task_X, task_y).
+        """
+        tasks = []
+        for _ in range(num_tasks):
+            # Randomly sample 'task_size' examples for the task
+            indices = np.random.choice(range(len(X)), size=task_size)
+            task_X = X[indices]
+            task_y = y[indices]
+            tasks.append((task_X, task_y))
+        return tasks
 
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
@@ -854,3 +1009,55 @@ class EnsembleClassifier(ClassifierModel):
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
         Y = np.array([1 if label == True else 0 for label in labels])
         return X, Y
+
+
+class KerasCapsNetModel(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        # Input Layer
+        input_layer = layers.Input(shape=(max_seq_len,))
+
+        # Embedding Layer
+        embedding_layer = layers.Embedding(vocab_size, embedding_dim,
+                                           weights=[embedding_matrix],
+                                           input_length=max_seq_len,
+                                           trainable=True)(input_layer)
+        print(embedding_layer.shape)  # Check the shape
+
+        # Add a reshape layer to make the embedding output 4D
+        reshape_layer = layers.Reshape((max_seq_len, embedding_dim, 1))(embedding_layer)
+        print(reshape_layer.shape)  # Verify the new shape
+
+        conv1 = layers.Conv2D(filters=256, kernel_size=(9, 1), strides=(1, 1), padding='valid', activation='relu')(
+            reshape_layer)
+        print(conv1.shape)  # Check the output shape
+
+        primary_caps = PrimaryCap(conv1, dim_capsule=8, n_channels=32, kernel_size=(9, 1), strides=2, padding='valid')
+        # The Capsule Layer
+        # For binary classification, you'd typically have 2 capsules in the final layer
+        cap_layer = CapsuleLayer(num_capsule=2, dim_capsule=16, routings=3, name='capsule_layer')(primary_caps)
+
+        # Output Layer
+        output_layer = Length(name='output_layer')(cap_layer)
+
+        # Build the model
+        model = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+        # Compile the model
+        model.compile(optimizer='adam',
+                      loss='binary_crossentropy',
+                      metrics=['accuracy'])
+        model.summary()
+
+        return model
+
+
+class TorchCapsNetModel(ClassifierModel):
+
+    @classmethod
+    def train(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
+              metadata=None):
+        pass
+
+    def predict(self, dataset: ClassificationDataset, metadata=None):
+        pass
