@@ -14,13 +14,19 @@ from keras.src.optimizers import Adam
 from keras.src.utils import pad_sequences, plot_model
 from sklearn.model_selection import KFold, cross_validate
 from sklearn.utils import compute_class_weight
+from torch.utils.data import DataLoader
 
 from classification.keras_classifiers.attention_with_context import AttentionWithContext
 from classification.keras_classifiers.l2l import BinaryClassifier, FewShotTextDataset
 from classification.models import ClassifierModel, ClassificationDataset
 from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR, KERAS_CNN_SAVE_PREDICTION_DIR
 import learn2learn as l2l
+import torch
+from torch import nn, optim
+import random
 
+import torch
+from torch.cuda import device
 
 class KerasClassifier(ClassifierModel):
     def __init__(self, model, embedding_model):
@@ -913,12 +919,7 @@ class L2LClassifier(ClassifierModel):
             max_seq_len = X_train.shape[1]
             metadata['max_seq_len'] = max_seq_len
 
-        import torch
-        from torch import nn, optim
-        import random
 
-        import torch
-        from torch.cuda import device
 
         model = BinaryClassifier(vocab_size=vocab_size, embedding_dim=embedding_dim, embedding_matrix=embedding_matrix)
         ways = 2
@@ -1062,12 +1063,38 @@ class L2LClassifier(ClassifierModel):
     def predict(self, dataset: ClassificationDataset, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
 
-        codes, labels = dataset.get_texts(), dataset.get_labels()
+        X, _ = self.get_X_and_Y(dataset, self.embedding_model, max_seq_len)
 
-        X_test = self.embedding_model.text_to_indexes(codes)
+        # Move the model to the appropriate device
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(device)
 
-        X_test = pad_sequences(X_test, padding='post', maxlen=max_seq_len)
-        return self.model(X_test)
+        # Ensure the model is in evaluation mode
+        self.model.eval()
+
+        # Create a DataLoader for the dataset
+        data_loader = DataLoader(X, batch_size=metadata.get('batch_size', 32))
+
+        predictions = []
+        with torch.no_grad():
+            for batch in data_loader:
+                # Move batch to the same device as the model
+                batch = batch.to(device)
+
+                # Forward pass through the model
+                outputs = self.model(batch)
+
+                # Convert outputs to probabilities using sigmoid since it's a binary classification
+                probs = torch.sigmoid(outputs)
+
+                # Convert these probabilities to binary predictions (0 or 1)
+                batch_predictions = (probs > 0.5).int()
+
+                # Move predictions to the CPU and convert to numpy array
+                predictions.append(batch_predictions.cpu().numpy())
+
+        # Flatten the batched predictions and return
+        return np.concatenate(predictions, axis=0)
 
     @classmethod
     def get_X_and_Y(cls, classification_dataset, embedding_model, max_seq_len):
