@@ -26,6 +26,8 @@ from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR, KERAS
 import torch
 from torch import nn, optim
 import random
+import numpy as np
+from random import shuffle
 
 import torch
 from torch.cuda import device
@@ -1872,3 +1874,171 @@ class KerasMAMLClassifier2(KerasClassifier):
             maml.meta_model.save_weights("maml.h5")
 
         return cls(maml.meta_model, embedding_model)
+
+
+class SiameseClassifier(KerasClassifier):
+
+    @classmethod
+    def generate_balanced_pairs(cls, embeddings, labels):
+        positive_pairs = []
+        negative_pairs = []
+
+        label_indices = {label: np.where(labels == label)[0] for label in set(labels)}
+
+        for idx, (embedding, label) in enumerate(zip(embeddings, labels)):
+            # Select a positive example
+            pos_indices = label_indices[label]
+            pos_idx = np.random.choice([i for i in pos_indices if i != idx], 1)[0]
+            positive_pairs.append([embedding, embeddings[pos_idx]])
+
+            # Select a negative example
+            neg_labels = [l for l in label_indices if l != label]
+            neg_label = np.random.choice(neg_labels)
+            neg_idx = np.random.choice(label_indices[neg_label], 1)[0]
+            negative_pairs.append([embedding, embeddings[neg_idx]])
+
+        # Combine and shuffle
+        all_pairs = positive_pairs + negative_pairs
+        all_labels = [1] * len(positive_pairs) + [0] * len(negative_pairs)
+        combined = list(zip(all_pairs, all_labels))
+        shuffle(combined)
+        all_pairs[:], all_labels[:] = zip(*combined)
+
+        return np.array(all_pairs), np.array(all_labels)
+
+    @classmethod
+    def build_base_network(cls, vocab_size, embedding_dim, max_seq_len):
+        input = layers.Input(shape=(max_seq_len, ))
+        x = layers.Embedding(input_dim=vocab_size, output_dim=embedding_dim, input_length=max_seq_len)(input)
+        x = layers.Flatten()(x)
+        # Flatten or apply global pooling here if necessary
+        x = layers.Dense(128, activation='relu')(x)
+        x = layers.Dense(128, activation='relu')(x)
+        return tf.keras.Model(input, x)
+
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        pass
+
+    @classmethod
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        imbalanced_learn_method = metadata.get(
+            'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
+        if max_seq_len is None:
+            max_seq_len = X_train.shape[1]
+            metadata['max_seq_len'] = max_seq_len
+
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
+
+        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+        if imbalanced_learn_method == 'smote':
+            sm = SMOTE(random_state=42)
+            X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'adasyn':
+            adasyn = ADASYN(random_state=42)
+            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'rus':
+            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+            X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'tomek':
+            tomek = TomekLinks()
+            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'nearmiss':
+            near_miss = NearMiss()
+            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'smotetomek':
+            smotetomek = SMOTETomek(random_state=42)
+            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
+
+        if metadata.get('perform_k_fold_cross_validation'):
+            cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
+                                        max_seq_len, vocab_size)
+
+        siamese_pairs, siamese_labels = cls.generate_balanced_pairs(X_train, Y_train)
+        base_network = cls.build_base_network(vocab_size, embedding_dim, max_seq_len)
+        siamese_network = cls.build_siamese_network(base_network)
+        siamese_network.fit([siamese_pairs[:, 0], siamese_pairs[:, 1]], siamese_labels, batch_size=32, epochs=10)
+        classifier_model = cls.build_classifier_model(base_network)
+
+        if class_weight_strategy == 'up_weight_majority':
+            if imbalanced_learn_method not in {'nearmiss', 'rus', 'tomek'}:
+                raise Exception(f"imbalanced_learn_method {imbalanced_learn_method} is not a down-sampling so "
+                                f"majority up-weighing is not allowed")
+            class_weight_dict = {0: majority_class_count / desired_majority_count, 1: 1}
+        elif class_weight_strategy == 'up_weight_minority':
+            class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y_train), y=Y_train)
+            class_weight_dict = dict(enumerate(class_weights))
+        else:
+            class_weight_dict = None
+        print(f'class_weight_dict = {class_weight_dict}')
+
+        early_stopping = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
+        model_checkpoint = ModelCheckpoint(filepath=f'models/{cls.__name__}-{dataset_name}.h5', monitor='val_loss',
+                                           save_best_only=True)
+
+        history = classifier_model.fit(
+            X_train, Y_train,
+            epochs=epochs,
+            batch_size=batch_size,
+            class_weight=class_weight_dict,
+            validation_data=cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len),
+            callbacks=[early_stopping, model_checkpoint]
+        )
+        cls.plot_history(history)
+        loss, accuracy = classifier_model.evaluate(X_train, Y_train, verbose=False)
+        print("Training Accuracy: {:.4f}".format(accuracy))
+        return cls(classifier_model, embedding_model)
+
+    @classmethod
+    def build_classifier_model(cls, base_network):
+        # Define the classifier using the output of the base network
+        real_input = layers.Input(shape=(None,))
+        base_features = base_network(real_input)
+        classification_output = layers.Dense(64, activation='relu')(base_features)
+        classification_output = layers.Dense(1, activation='sigmoid')(classification_output)  # Binary classification
+        # Combined model for classification
+        classifier_model = tf.keras.Model(inputs=real_input, outputs=classification_output)
+        classifier_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        return classifier_model
+
+    @classmethod
+    def build_siamese_network(cls, base_network):
+        input_shape = (None,)  # max_sequence_length is your preprocessed text length
+        input_a = layers.Input(shape=input_shape)
+        input_b = layers.Input(shape=input_shape)
+        # Because we re-use the same instance `base_network`, the weights of the network
+        # will be shared across the two branches
+        processed_a = base_network(input_a)
+        processed_b = base_network(input_b)
+        # Calculate the absolute difference between the embeddings
+        distance = layers.Lambda(lambda x: tf.abs(x[0] - x[1]))([processed_a, processed_b])
+        # Add a dense layer with a sigmoid unit to generate the similarity score
+        prediction = layers.Dense(1, activation='sigmoid')(distance)
+        # Define the model that takes in two input texts and outputs the similarity score
+        model = tf.keras.Model(inputs=[input_a, input_b], outputs=prediction)
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        return model
+
+    def predict(self, dataset, metadata=None):
+        return super().predict(dataset, metadata)
