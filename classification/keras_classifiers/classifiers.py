@@ -19,6 +19,8 @@ from torch.utils.data import DataLoader
 
 from classification.keras_classifiers.Rept import ReptileDataset
 from classification.keras_classifiers.attention_with_context import AttentionWithContext
+from classification.keras_classifiers.mml import MAMLDataLoader, MAML
+from classification.keras_classifiers.task_generator import TaskGenerator
 from classification.models import ClassifierModel, ClassificationDataset
 from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR, KERAS_CNN_SAVE_PREDICTION_DIR
 import torch
@@ -1300,3 +1302,573 @@ class ReptileClassifier(KerasClassifier):
         test_preds = self.model.predict(test_embeddings)
 
         return self.model.predict(X_test)
+
+
+class KerasMAMLClassifier1(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        return KerasCNNClassifierWithEmbedding.build_model(vocab_size, embedding_dim, embedding_matrix, max_seq_len,
+                                                           **kwargs)
+
+    #
+    # @classmethod
+    # def maml_train_step(cls, model, task_batch, task_lr, meta_lr, num_adaptation_steps, build_model_wrapper):
+    #     meta_optimizer = tf.keras.optimizers.Adam(learning_rate=meta_lr)
+    #
+    #     # Meta-training step
+    #     with tf.GradientTape(persistent=True) as meta_tape:
+    #         meta_loss = 0
+    #
+    #         for task_data in task_batch:
+    #             # Assume task_data is a tuple of (input, label)
+    #             x, y = task_data
+    #
+    #             # Create a copy of the model for this task
+    #             task_model = build_model_wrapper()
+    #             task_model.set_weights(model.get_weights())
+    #
+    #             # Inner loop: Task-specific adaptation
+    #             for _ in range(num_adaptation_steps):
+    #                 with tf.GradientTape() as task_tape:
+    #                     pred = task_model(tf.expand_dims(x, axis=0), training=True)
+    #                     loss = tf.keras.losses.binary_crossentropy(np.array([[y]]), pred)
+    #
+    #                 gradients = task_tape.gradient(loss, task_model.trainable_variables)
+    #                 if None in gradients:
+    #                     raise ValueError("Some gradients are None. Check your model and loss function.")
+    #                 task_optimizer = tf.keras.optimizers.Adam(learning_rate=task_lr)
+    #                 task_optimizer.apply_gradients(zip(gradients, task_model.trainable_variables))
+    #
+    #             # Calculate the meta-loss
+    #             pred = task_model(tf.expand_dims(x, axis=0), training=True)
+    #             if meta_loss is None:
+    #                 meta_loss = tf.keras.losses.binary_crossentropy(np.array([[y]]), pred)
+    #             else:
+    #                 meta_loss += tf.keras.losses.binary_crossentropy(np.array([[y]]), pred)
+    #     if not model.trainable_variables:
+    #         raise ValueError("No trainable variables found in the model.")
+    #
+    #     # Meta-update
+    #     meta_gradients = meta_tape.gradient(meta_loss, model.trainable_variables)
+    #     meta_optimizer.apply_gradients(zip(meta_gradients, model.trainable_variables))
+
+    @classmethod
+    def maml_train_step(cls, model, task_batch, task_lr, meta_lr, num_adaptation_steps):
+        if not model.trainable_variables:
+            raise ValueError("No trainable variables found in the model.")
+
+        meta_optimizer = tf.keras.optimizers.Adam(learning_rate=meta_lr)
+        task_optimizer = tf.keras.optimizers.Adam(learning_rate=task_lr)
+        loss_object = tf.keras.losses.BinaryCrossentropy()
+
+        # Initialize meta_loss as a 0-D Tensor
+        meta_loss = tf.constant(0.0)
+
+        # Meta-training step
+        with tf.GradientTape(persistent=True) as meta_tape:
+            import copy
+            # Save original weights and optimizer state
+            original_weights = copy.deepcopy(model.get_weights())
+
+            for task_data in task_batch:
+                x, y = task_data  # Assume task_data is a tuple of (input, label)
+
+                # Inner loop: Task-specific adaptation
+                for _ in range(num_adaptation_steps):
+                    with tf.GradientTape() as task_tape:
+                        pred = model(tf.expand_dims(x, axis=0), training=True)
+                        loss = loss_object(np.array([[y]]), pred)
+
+                    gradients = task_tape.gradient(loss, model.trainable_variables)
+                    if None in gradients:
+                        raise ValueError("Some gradients are None. Check your model and loss function.")
+
+                    # Apply gradients using the task optimizer
+                    task_optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+                # Calculate the meta-loss
+                pred = model(tf.expand_dims(x, axis=0), training=True)
+                meta_loss += loss_object(np.array([[y]]), pred)
+
+                # Restore the original weights and optimizer state before the next task
+                model.set_weights(original_weights)
+
+        # Compute meta-gradients
+        meta_gradients = meta_tape.gradient(meta_loss, model.trainable_variables)
+        if any(g is None for g in meta_gradients):
+            raise ValueError("Some meta-gradients are None. Check your computational graph and model.")
+
+        # Apply meta-updates
+        meta_optimizer.apply_gradients(zip(meta_gradients, model.trainable_variables))
+
+        # Cleaning up the persistent tape
+        del meta_tape
+
+    @classmethod
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        imbalanced_learn_method = metadata.get(
+            'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
+        if max_seq_len is None:
+            max_seq_len = X_train.shape[1]
+            metadata['max_seq_len'] = max_seq_len
+
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
+
+        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+        if imbalanced_learn_method == 'smote':
+            sm = SMOTE(random_state=42)
+            X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'adasyn':
+            adasyn = ADASYN(random_state=42)
+            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'rus':
+            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+            X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'tomek':
+            tomek = TomekLinks()
+            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'nearmiss':
+            near_miss = NearMiss()
+            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'smotetomek':
+            smotetomek = SMOTETomek(random_state=42)
+            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
+
+        if metadata.get('perform_k_fold_cross_validation'):
+            cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
+                                        max_seq_len, vocab_size)
+
+        model = cls.build_model(
+            vocab_size=vocab_size,
+            embedding_dim=embedding_dim,
+            embedding_matrix=embedding_matrix,
+            max_seq_len=max_seq_len,
+            show_summary=True
+        )
+
+        task_dataset = [(X_train[i], Y_train[i]) for i in range(len(X_train))]
+        task_batches = TaskGenerator(task_dataset, 20, 5).generate()
+
+        task_lr = 0.01
+        meta_lr = 0.001
+        num_adaptation_steps = 4
+
+        for task_batch in task_batches:
+            cls.maml_train_step(model, task_batch, task_lr, meta_lr, num_adaptation_steps)
+
+        return cls(model, embedding_model)
+
+    # @classmethod
+    # def train(cls, train_dataset, validation_dataset=None, metadata=None):
+    #     from tensorflow.keras import utils
+    #
+    #     embedding_model = metadata.get('embedding_model')
+    #     batch_size = metadata.get('batch_size')
+    #     epochs = metadata.get('epochs')
+    #     max_seq_len = metadata.get('max_seq_len')
+    #     embedding_matrix = metadata.get('embedding_matrix')
+    #     dataset_name = metadata.get('dataset_name')
+    #     class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+    #     imbalanced_learn_method = metadata.get(
+    #         'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+    #
+    #     if embedding_model is not None:
+    #         vocab_size = embedding_model.get_vocab_size()
+    #         embedding_dim = embedding_model.get_embedding_dim()
+    #     else:
+    #         vocab_size = metadata.get('vocab_size')
+    #         embedding_dim = metadata.get('embedding_dim')
+    #
+    #     X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
+    #     if max_seq_len is None:
+    #         max_seq_len = X_train.shape[1]
+    #         metadata['max_seq_len'] = max_seq_len
+    #
+    #     minority_class_count = np.sum(Y_train == 1)
+    #     majority_class_count = np.sum(Y_train == 0)
+    #     print(f'minority_class_count: {minority_class_count}')
+    #     print(f'majority_class_count: {majority_class_count}')
+    #     desired_majority_count = minority_class_count * 2
+    #     sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
+    #
+    #     print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+    #     if imbalanced_learn_method == 'smote':
+    #         sm = SMOTE(random_state=42)
+    #         X_train, Y_train = sm.fit_resample(X_train, Y_train)
+    #     elif imbalanced_learn_method == 'adasyn':
+    #         adasyn = ADASYN(random_state=42)
+    #         X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+    #     elif imbalanced_learn_method == 'rus':
+    #         rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+    #         X_train, Y_train = rus.fit_resample(X_train, Y_train)
+    #     elif imbalanced_learn_method == 'tomek':
+    #         tomek = TomekLinks()
+    #         X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+    #     elif imbalanced_learn_method == 'nearmiss':
+    #         near_miss = NearMiss()
+    #         X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+    #     elif imbalanced_learn_method == 'smotetomek':
+    #         smotetomek = SMOTETomek(random_state=42)
+    #         X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
+    #
+    #     if metadata.get('perform_k_fold_cross_validation'):
+    #         cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
+    #                                     max_seq_len, vocab_size)
+    #
+    #     X_val, Y_val = cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len)
+    #
+    #     inner_lr = 0.01
+    #     outer_lr = 0.001
+    #     batch_size = 20
+    #     val_batch_size = 20
+    #     train_data = MAMLDataLoader(X_train, Y_train, batch_size, k_shot=10, q_query=4)
+    #     val_data = MAMLDataLoader(X_val, Y_val, val_batch_size, k_shot=10, q_query=4)
+    #
+    #     inner_optimizer = tf.keras.optimizers.SGD(inner_lr)
+    #     outer_optimizer = tf.keras.optimizers.SGD(outer_lr)
+    #
+    #     inner_model = KerasCNNClassifierWithEmbedding.build_model(vocab_size, embedding_dim, embedding_matrix,
+    #                                                               max_seq_len)
+    #     maml = MAML(inner_model, 2)
+    #     epochs = 3
+    #     for e in range(epochs):
+    #
+    #         train_progbar = utils.Progbar(train_data.steps)
+    #         val_progbar = utils.Progbar(val_data.steps)
+    #         print('\nEpoch {}/{}'.format(e + 1, epochs))
+    #
+    #         train_meta_loss = []
+    #         train_meta_acc = []
+    #         val_meta_loss = []
+    #         val_meta_acc = []
+    #
+    #         for i in range(train_data.steps):
+    #             batch_train_loss, acc = maml.train_on_batch(train_data.get_one_batch(),
+    #                                                         inner_optimizer,
+    #                                                         inner_step=1,
+    #                                                         outer_optimizer=outer_optimizer)
+    #
+    #             train_meta_loss.append(batch_train_loss)
+    #             train_meta_acc.append(acc)
+    #             train_progbar.update(i + 1, [('loss', np.mean(train_meta_loss)),
+    #                                          ('accuracy', np.mean(train_meta_acc))])
+    #
+    #         for i in range(val_data.steps):
+    #             batch_val_loss, val_acc = maml.train_on_batch(val_data.get_one_batch(), inner_optimizer, inner_step=2)
+    #
+    #             val_meta_loss.append(batch_val_loss)
+    #             val_meta_acc.append(val_acc)
+    #             val_progbar.update(i + 1, [('val_loss', np.mean(val_meta_loss)),
+    #                                        ('val_accuracy', np.mean(val_meta_acc))])
+    #
+
+
+class KerasMAMLClassifier1(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        return KerasCNNClassifierWithEmbedding.build_model(vocab_size, embedding_dim, embedding_matrix, max_seq_len,
+                                                           **kwargs)
+
+    #
+    # @classmethod
+    # def maml_train_step(cls, model, task_batch, task_lr, meta_lr, num_adaptation_steps, build_model_wrapper):
+    #     meta_optimizer = tf.keras.optimizers.Adam(learning_rate=meta_lr)
+    #
+    #     # Meta-training step
+    #     with tf.GradientTape(persistent=True) as meta_tape:
+    #         meta_loss = 0
+    #
+    #         for task_data in task_batch:
+    #             # Assume task_data is a tuple of (input, label)
+    #             x, y = task_data
+    #
+    #             # Create a copy of the model for this task
+    #             task_model = build_model_wrapper()
+    #             task_model.set_weights(model.get_weights())
+    #
+    #             # Inner loop: Task-specific adaptation
+    #             for _ in range(num_adaptation_steps):
+    #                 with tf.GradientTape() as task_tape:
+    #                     pred = task_model(tf.expand_dims(x, axis=0), training=True)
+    #                     loss = tf.keras.losses.binary_crossentropy(np.array([[y]]), pred)
+    #
+    #                 gradients = task_tape.gradient(loss, task_model.trainable_variables)
+    #                 if None in gradients:
+    #                     raise ValueError("Some gradients are None. Check your model and loss function.")
+    #                 task_optimizer = tf.keras.optimizers.Adam(learning_rate=task_lr)
+    #                 task_optimizer.apply_gradients(zip(gradients, task_model.trainable_variables))
+    #
+    #             # Calculate the meta-loss
+    #             pred = task_model(tf.expand_dims(x, axis=0), training=True)
+    #             if meta_loss is None:
+    #                 meta_loss = tf.keras.losses.binary_crossentropy(np.array([[y]]), pred)
+    #             else:
+    #                 meta_loss += tf.keras.losses.binary_crossentropy(np.array([[y]]), pred)
+    #     if not model.trainable_variables:
+    #         raise ValueError("No trainable variables found in the model.")
+    #
+    #     # Meta-update
+    #     meta_gradients = meta_tape.gradient(meta_loss, model.trainable_variables)
+    #     meta_optimizer.apply_gradients(zip(meta_gradients, model.trainable_variables))
+
+    @classmethod
+    def maml_train_step(cls, model, task_batch, task_lr, meta_lr, num_adaptation_steps):
+        if not model.trainable_variables:
+            raise ValueError("No trainable variables found in the model.")
+
+        meta_optimizer = tf.keras.optimizers.Adam(learning_rate=meta_lr)
+        task_optimizer = tf.keras.optimizers.Adam(learning_rate=task_lr)
+        loss_object = tf.keras.losses.BinaryCrossentropy()
+
+        # Initialize meta_loss as a 0-D Tensor
+        meta_loss = tf.constant(0.0)
+
+        # Meta-training step
+        with tf.GradientTape(persistent=True) as meta_tape:
+            import copy
+            # Save original weights and optimizer state
+            original_weights = copy.deepcopy(model.get_weights())
+
+            for task_data in task_batch:
+                x, y = task_data  # Assume task_data is a tuple of (input, label)
+
+                # Inner loop: Task-specific adaptation
+                for _ in range(num_adaptation_steps):
+                    with tf.GradientTape() as task_tape:
+                        pred = model(tf.expand_dims(x, axis=0), training=True)
+                        loss = loss_object(np.array([[y]]), pred)
+
+                    gradients = task_tape.gradient(loss, model.trainable_variables)
+                    if None in gradients:
+                        raise ValueError("Some gradients are None. Check your model and loss function.")
+
+                    # Apply gradients using the task optimizer
+                    task_optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+                # Calculate the meta-loss
+                pred = model(tf.expand_dims(x, axis=0), training=True)
+                meta_loss += loss_object(np.array([[y]]), pred)
+
+                # Restore the original weights and optimizer state before the next task
+                model.set_weights(original_weights)
+
+        # Compute meta-gradients
+        meta_gradients = meta_tape.gradient(meta_loss, model.trainable_variables)
+        if any(g is None for g in meta_gradients):
+            raise ValueError("Some meta-gradients are None. Check your computational graph and model.")
+
+        # Apply meta-updates
+        meta_optimizer.apply_gradients(zip(meta_gradients, model.trainable_variables))
+
+        # Cleaning up the persistent tape
+        del meta_tape
+
+    @classmethod
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        imbalanced_learn_method = metadata.get(
+            'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
+        if max_seq_len is None:
+            max_seq_len = X_train.shape[1]
+            metadata['max_seq_len'] = max_seq_len
+
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
+
+        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+        if imbalanced_learn_method == 'smote':
+            sm = SMOTE(random_state=42)
+            X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'adasyn':
+            adasyn = ADASYN(random_state=42)
+            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'rus':
+            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+            X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'tomek':
+            tomek = TomekLinks()
+            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'nearmiss':
+            near_miss = NearMiss()
+            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'smotetomek':
+            smotetomek = SMOTETomek(random_state=42)
+            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
+
+        if metadata.get('perform_k_fold_cross_validation'):
+            cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
+                                        max_seq_len, vocab_size)
+
+        model = cls.build_model(
+            vocab_size=vocab_size,
+            embedding_dim=embedding_dim,
+            embedding_matrix=embedding_matrix,
+            max_seq_len=max_seq_len,
+            show_summary=True
+        )
+
+        task_dataset = [(X_train[i], Y_train[i]) for i in range(len(X_train))]
+        task_batches = TaskGenerator(task_dataset, 20, 5).generate()
+
+        task_lr = 0.01
+        meta_lr = 0.001
+        num_adaptation_steps = 4
+
+        for task_batch in task_batches:
+            cls.maml_train_step(model, task_batch, task_lr, meta_lr, num_adaptation_steps)
+
+        return cls(model, embedding_model)
+
+
+class KerasMAMLClassifier2(KerasClassifier):
+    @classmethod
+    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        return KerasCNNClassifierWithEmbedding.build_model(vocab_size, embedding_dim, embedding_matrix, max_seq_len,
+                                                           **kwargs)
+
+    @classmethod
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+        from tensorflow.keras import utils
+
+        embedding_model = metadata.get('embedding_model')
+        batch_size = metadata.get('batch_size')
+        epochs = metadata.get('epochs')
+        max_seq_len = metadata.get('max_seq_len')
+        embedding_matrix = metadata.get('embedding_matrix')
+        dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        imbalanced_learn_method = metadata.get(
+            'imbalanced_learn_method')  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+
+        if embedding_model is not None:
+            vocab_size = embedding_model.get_vocab_size()
+            embedding_dim = embedding_model.get_embedding_dim()
+        else:
+            vocab_size = metadata.get('vocab_size')
+            embedding_dim = metadata.get('embedding_dim')
+
+        X_train, Y_train = cls.get_X_and_Y(train_dataset, embedding_model, max_seq_len)
+        if max_seq_len is None:
+            max_seq_len = X_train.shape[1]
+            metadata['max_seq_len'] = max_seq_len
+
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
+
+        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+        if imbalanced_learn_method == 'smote':
+            sm = SMOTE(random_state=42)
+            X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'adasyn':
+            adasyn = ADASYN(random_state=42)
+            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'rus':
+            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+            X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'tomek':
+            tomek = TomekLinks()
+            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'nearmiss':
+            near_miss = NearMiss()
+            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'smotetomek':
+            smotetomek = SMOTETomek(random_state=42)
+            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
+
+        if metadata.get('perform_k_fold_cross_validation'):
+            cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
+                                        max_seq_len, vocab_size)
+
+        X_val, Y_val = cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len)
+
+        inner_lr = 0.01
+        outer_lr = 0.001
+        batch_size = 20
+        val_batch_size = 20
+        train_data = MAMLDataLoader(X_train, Y_train, batch_size, k_shot=10, q_query=4)
+        val_data = MAMLDataLoader(X_val, Y_val, val_batch_size, k_shot=10, q_query=4)
+
+        inner_optimizer = tf.keras.optimizers.SGD(inner_lr)
+        outer_optimizer = tf.keras.optimizers.SGD(outer_lr)
+
+        inner_model = KerasCNNClassifierWithEmbedding.build_model(vocab_size, embedding_dim, embedding_matrix,
+                                                                  max_seq_len)
+        maml = MAML(inner_model, 2)
+        epochs = 3
+        for e in range(epochs):
+
+            train_progbar = utils.Progbar(train_data.steps)
+            val_progbar = utils.Progbar(val_data.steps)
+            print('\nEpoch {}/{}'.format(e + 1, epochs))
+
+            train_meta_loss = []
+            train_meta_acc = []
+            val_meta_loss = []
+            val_meta_acc = []
+
+            for i in range(train_data.steps):
+                batch_train_loss, acc = maml.train_on_batch(train_data.get_one_batch(),
+                                                            inner_optimizer,
+                                                            inner_step=1,
+                                                            outer_optimizer=outer_optimizer)
+
+                train_meta_loss.append(batch_train_loss)
+                train_meta_acc.append(acc)
+                train_progbar.update(i + 1, [('loss', np.mean(train_meta_loss)),
+                                             ('accuracy', np.mean(train_meta_acc))])
+
+            for i in range(val_data.steps):
+                batch_val_loss, val_acc = maml.train_on_batch(val_data.get_one_batch(), inner_optimizer, inner_step=2)
+
+                val_meta_loss.append(batch_val_loss)
+                val_meta_acc.append(val_acc)
+                val_progbar.update(i + 1, [('val_loss', np.mean(val_meta_loss)),
+                                           ('val_accuracy', np.mean(val_meta_acc))])
+
+            maml.meta_model.save_weights("maml.h5")
+
+        return cls(maml.meta_model, embedding_model)
