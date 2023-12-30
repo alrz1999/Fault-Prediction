@@ -12,10 +12,12 @@ from keras.src import regularizers
 from keras.src.callbacks import EarlyStopping, ModelCheckpoint
 from keras.src.optimizers import Adam
 from keras.src.utils import pad_sequences, plot_model
+from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold, cross_validate
 from sklearn.utils import compute_class_weight
 from torch.utils.data import DataLoader
 
+from classification.keras_classifiers.Rept import ReptileDataset
 from classification.keras_classifiers.attention_with_context import AttentionWithContext
 from classification.keras_classifiers.l2l import BinaryClassifier, FewShotTextDataset
 from classification.models import ClassifierModel, ClassificationDataset
@@ -27,6 +29,7 @@ import random
 
 import torch
 from torch.cuda import device
+
 
 class KerasClassifier(ClassifierModel):
     def __init__(self, model, embedding_model):
@@ -869,34 +872,9 @@ class L2LClassifier(ClassifierModel):
         self.model = model
         self.embedding_model = embedding_model
 
+class ReptileClassifier(KerasClassifier):
     @classmethod
-    def build_model(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
-        model_input = kwargs.get('model_input')
-
-        embedding_layer = layers.Embedding(
-            input_dim=vocab_size,
-            output_dim=embedding_dim,
-            weights=[embedding_matrix],
-            input_length=max_seq_len,
-            trainable=True,
-            mask_zero=True
-        )(model_input)
-
-        conv_layer = layers.Conv1D(100, 5, padding="same", activation="relu")(embedding_layer)
-        global_max_pooling = layers.GlobalMaxPooling1D()(conv_layer)
-        dropout_layer = layers.Dropout(0.25)(global_max_pooling)
-        dense_layer = layers.Dense(100, activation="relu")(dropout_layer)
-        predictions = layers.Dense(1, activation="sigmoid")(dense_layer)
-
-        model = tf.keras.Model(inputs=model_input, outputs=predictions)
-        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.summary()
-        return model
-
-    @classmethod
-    def train(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
-              metadata=None):
-        np.random.seed(42)
+    def train(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -919,188 +897,185 @@ class L2LClassifier(ClassifierModel):
             max_seq_len = X_train.shape[1]
             metadata['max_seq_len'] = max_seq_len
 
+        minority_class_count = np.sum(Y_train == 1)
+        majority_class_count = np.sum(Y_train == 0)
+        print(f'minority_class_count: {minority_class_count}')
+        print(f'majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
 
+        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+        if imbalanced_learn_method == 'smote':
+            sm = SMOTE(random_state=42)
+            X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'adasyn':
+            adasyn = ADASYN(random_state=42)
+            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'rus':
+            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+            X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'tomek':
+            tomek = TomekLinks()
+            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'nearmiss':
+            near_miss = NearMiss()
+            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'smotetomek':
+            smotetomek = SMOTETomek(random_state=42)
+            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
 
-        model = BinaryClassifier(vocab_size=vocab_size, embedding_dim=embedding_dim, embedding_matrix=embedding_matrix)
-        ways = 2
-        shots = 1
-        meta_lr = 0.003
-        fast_lr = 0.5
-        meta_batch_size = 32
-        adaptation_steps = 1
-        num_iterations = 100
-        cuda = True
-        seed = 42
-        meta_train_dataset = l2l.data.MetaDataset(FewShotTextDataset(X_train, Y_train))
+        if metadata.get('perform_k_fold_cross_validation'):
+            cls.k_fold_cross_validation(X_train, Y_train, batch_size, embedding_dim, embedding_matrix, epochs,
+                                        max_seq_len, vocab_size)
 
-        task_transforms = [
-            l2l.data.transforms.NWays(meta_train_dataset, n=2),  # Binary Classification
-            l2l.data.transforms.KShots(meta_train_dataset, k=2 * shots),  # Number of examples
-            l2l.data.transforms.LoadData(meta_train_dataset),
-            l2l.data.transforms.RemapLabels(meta_train_dataset),
+        X_val, Y_val = cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len)
+        learning_rate = 0.003
+        meta_step_size = 0.25
+
+        inner_batch_size = 25
+        eval_batch_size = 25
+
+        meta_iters = 2000
+        eval_iters = 5
+        inner_iters = 4
+
+        eval_interval = 1
+        train_shots = 20
+        shots = 5
+        classes = 2
+
+        train_reptile_dataset = ReptileDataset(X_train, Y_train)
+        validation_reptile_dataset = ReptileDataset(X_val, Y_val)
+
+        model = KerasCNNClassifierWithEmbedding.build_model(vocab_size, embedding_dim, embedding_matrix, max_seq_len)
+        optimizer = tf.keras.optimizers.SGD(learning_rate=learning_rate)
+
+        training = []
+        testing = []
+        for meta_iter in range(meta_iters):
+            frac_done = meta_iter / meta_iters
+            cur_meta_step_size = (1 - frac_done) * meta_step_size
+            # Temporarily save the weights from the model.
+            old_vars = model.get_weights()
+            # Get a sample from the full dataset.
+            mini_dataset = train_reptile_dataset.get_mini_dataset(
+                inner_batch_size, inner_iters, train_shots
+            )
+            for embeddings, labels in mini_dataset:
+                with tf.GradientTape() as tape:
+                    preds = model(embeddings)
+                    loss = tf.keras.losses.binary_crossentropy(tf.expand_dims(labels, axis=-1), preds)
+                grads = tape.gradient(loss, model.trainable_weights)
+                optimizer.apply_gradients(zip(grads, model.trainable_weights))
+            new_vars = model.get_weights()
+            # Perform SGD for the meta step.
+            for var in range(len(new_vars)):
+                new_vars[var] = old_vars[var] + (
+                        (new_vars[var] - old_vars[var]) * cur_meta_step_size
+                )
+            # After the meta-learning step, reload the newly-trained weights into the model.
+            model.set_weights(new_vars)
+            # Evaluation loop
+            if meta_iter % eval_interval == 0:
+                accuracies = []
+                for reptile_dataset in (train_reptile_dataset, validation_reptile_dataset):
+                    # Sample a mini dataset from the full dataset.
+                    train_set, test_embeddings, test_labels = reptile_dataset.get_mini_dataset(
+                        eval_batch_size, eval_iters, shots, split=True
+                    )
+                    old_vars = model.get_weights()
+                    # Train on the samples and get the resulting accuracies.
+                    for embeddings, labels in train_set:
+                        with tf.GradientTape() as tape:
+                            preds = model(embeddings)
+                            loss = tf.keras.losses.binary_crossentropy(tf.expand_dims(labels, axis=-1), preds)
+                        grads = tape.gradient(loss, model.trainable_weights)
+                        optimizer.apply_gradients(zip(grads, model.trainable_weights))
+                    test_preds = model.predict(test_embeddings, verbose=0).flatten()
+                    test_preds = np.round(test_preds)
+                    num_correct = (test_preds == test_labels).sum()
+                    # Reset the weights after getting the evaluation accuracies.
+                    model.set_weights(old_vars)
+                    accuracies.append(num_correct / classes)
+                training.append(accuracies[0])
+                testing.append(accuracies[1])
+                if meta_iter % 100 == 0:
+                    print(
+                        "batch %d: train=%f test=%f" % (meta_iter, accuracies[0], accuracies[1])
+                    )
+
+        # First, some preprocessing to smooth the training and testing arrays for display.
+        window_length = 100
+        train_s = np.r_[
+            training[window_length - 1: 0: -1],
+            training,
+            training[-1:-window_length:-1],
         ]
-        meta_train_task_dataset = l2l.data.TaskDataset(meta_train_dataset, task_transforms=task_transforms,
-                                                       num_tasks=20000)
-
-        X_valid, Y_valid = cls.get_X_and_Y(validation_dataset, embedding_model, max_seq_len)
-        meta_test_dataset = l2l.data.MetaDataset(FewShotTextDataset(X_valid, Y_valid))
-
-        task_transforms = [
-            l2l.data.transforms.NWays(meta_test_dataset, 2),  # Binary Classification
-            l2l.data.transforms.KShots(meta_test_dataset, 2 * shots),  # Number of examples
-            l2l.data.transforms.LoadData(meta_test_dataset),
-            l2l.data.transforms.RemapLabels(meta_test_dataset),
+        test_s = np.r_[
+            testing[window_length - 1: 0: -1], testing, testing[-1:-window_length:-1]
         ]
-        meta_test_task_dataset = l2l.data.TaskDataset(meta_test_dataset, task_transforms=task_transforms,
-                                                      num_tasks=20000)
+        w = np.hamming(window_length)
+        train_y = np.convolve(w / w.sum(), train_s, mode="valid")
+        test_y = np.convolve(w / w.sum(), test_s, mode="valid")
 
-        def accuracy(predictions, targets):
-            predictions = predictions.argmax(dim=1).view(targets.shape)
-            return (predictions == targets).sum().float() / targets.size(0)
+        # Display the training accuracies.
+        x = np.arange(0, len(test_y), 1)
+        plt.plot(x, test_y, x, train_y)
+        plt.legend(["test", "train"])
+        plt.grid()
 
-        def fast_adapt(batch, learner, loss, adaptation_steps, shots, ways, device):
-            data, labels = batch
-            data, labels = data.to(device), labels.to(device)
+        train_set, test_embeddings, test_labels = validation_reptile_dataset.get_mini_dataset(
+            eval_batch_size, eval_iters, shots, split=True
+        )
+        for images, labels in train_set:
+            with tf.GradientTape() as tape:
+                preds = model(images)
+                loss = tf.keras.losses.binary_crossentropy(tf.expand_dims(labels, axis=-1), preds)
+            grads = tape.gradient(loss, model.trainable_weights)
+            optimizer.apply_gradients(zip(grads, model.trainable_weights))
+        test_preds = model.predict(test_embeddings)
+        test_preds = tf.argmax(test_preds).numpy()
 
-            adaptation_indices = np.zeros(data.size(0), dtype=bool)
-            # Separate data into adaptation/evalutation sets
-            adaptation_indices[np.arange(shots * ways) * 2] = True
-            evaluation_indices = torch.from_numpy(~adaptation_indices)
-            adaptation_indices = torch.from_numpy(adaptation_indices)
-            adaptation_data, adaptation_labels = data[adaptation_indices], labels[adaptation_indices]
-            evaluation_data, evaluation_labels = data[evaluation_indices], labels[evaluation_indices]
 
-            # Adapt the model
-            for step in range(adaptation_steps):
-                train_error = loss(learner(adaptation_data), adaptation_labels.float().view(-1, 1))
-                learner.adapt(train_error)
-
-            # Evaluate the adapted model
-            predictions = learner(evaluation_data)
-            valid_error = loss(predictions, evaluation_labels.float().view(-1, 1))
-            valid_accuracy = accuracy(predictions, evaluation_labels)
-            return valid_error, valid_accuracy
-
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        device = torch.device('cpu')
-        if cuda:
-            torch.cuda.manual_seed(seed)
-            device = torch.device('cuda')
-
-        maml = l2l.algorithms.MAML(model.to(device), lr=fast_lr, first_order=False)
-        opt = optim.Adam(maml.parameters(), meta_lr)
-        loss = nn.BCELoss()
-
-        for iteration in range(num_iterations):
-            opt.zero_grad()
-            meta_train_error = 0.0
-            meta_train_accuracy = 0.0
-            meta_valid_error = 0.0
-            meta_valid_accuracy = 0.0
-            for task in range(meta_batch_size):
-                # Compute meta-training loss
-                learner = maml.clone()
-                batch = meta_train_task_dataset.sample()
-                evaluation_error, evaluation_accuracy = fast_adapt(batch,
-                                                                   learner,
-                                                                   loss,
-                                                                   adaptation_steps,
-                                                                   shots,
-                                                                   ways,
-                                                                   device)
-                evaluation_error.backward()
-                meta_train_error += evaluation_error.item()
-                meta_train_accuracy += evaluation_accuracy.item()
-
-                # Compute meta-validation loss
-                learner = maml.clone()
-                batch = meta_test_task_dataset.sample()
-                evaluation_error, evaluation_accuracy = fast_adapt(batch,
-                                                                   learner,
-                                                                   loss,
-                                                                   adaptation_steps,
-                                                                   shots,
-                                                                   ways,
-                                                                   device)
-                meta_valid_error += evaluation_error.item()
-                meta_valid_accuracy += evaluation_accuracy.item()
-
-            # Print some metrics
-            print('\n')
-            print('Iteration', iteration)
-            print('Meta Train Error', meta_train_error / meta_batch_size)
-            print('Meta Train Accuracy', meta_train_accuracy / meta_batch_size)
-            print('Meta Valid Error', meta_valid_error / meta_batch_size)
-            print('Meta Valid Accuracy', meta_valid_accuracy / meta_batch_size)
-
-            # Average the accumulated gradients and optimize
-            for p in maml.parameters():
-                p.grad.data.mul_(1.0 / meta_batch_size)
-            opt.step()
-
-        meta_test_error = 0.0
-        meta_test_accuracy = 0.0
-        for task in range(meta_batch_size):
-            # Compute meta-testing loss
-            learner = maml.clone()
-            batch = meta_test_task_dataset.sample()
-            evaluation_error, evaluation_accuracy = fast_adapt(batch,
-                                                               learner,
-                                                               loss,
-                                                               adaptation_steps,
-                                                               shots,
-                                                               ways,
-                                                               device)
-            meta_test_error += evaluation_error.item()
-            meta_test_accuracy += evaluation_accuracy.item()
-        print('Meta Test Error', meta_test_error / meta_batch_size)
-        print('Meta Test Accuracy', meta_test_accuracy / meta_batch_size)
-
+        plt.show()
         return cls(model, embedding_model)
 
-    def predict(self, dataset: ClassificationDataset, metadata=None):
+    def predict(self, dataset, metadata=None):
         max_seq_len = metadata.get('max_seq_len')
 
-        X, _ = self.get_X_and_Y(dataset, self.embedding_model, max_seq_len)
+        X_test, Y_test = self.get_X_and_Y(dataset, self.embedding_model, max_seq_len)
 
-        # Move the model to the appropriate device
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model.to(device)
+        test_reptile_dataset = ReptileDataset(X_test, Y_test)
+        learning_rate = 0.003
+        meta_step_size = 0.25
 
-        # Ensure the model is in evaluation mode
-        self.model.eval()
+        inner_batch_size = 25
+        eval_batch_size = 25
 
-        # Create a DataLoader for the dataset
-        data_loader = DataLoader(X, batch_size=metadata.get('batch_size', 32))
+        meta_iters = 200
+        eval_iters = 5
+        inner_iters = 4
 
-        predictions = []
-        with torch.no_grad():
-            for batch in data_loader:
-                # Move batch to the same device as the model
-                batch = batch.to(device)
+        eval_interval = 1
+        train_shots = 20
+        shots = 5
+        classes = 2
+        train_set, test_images, test_labels = test_reptile_dataset.get_mini_dataset(
+            eval_batch_size, eval_iters, shots, split=True
+        )
+        optimizer = tf.keras.optimizers.SGD(learning_rate=learning_rate)
 
-                # Forward pass through the model
-                outputs = self.model(batch)
+        for images, labels in train_set:
+            with tf.GradientTape() as tape:
+                preds = self.model(images)
+                loss = tf.keras.losses.binary_crossentropy(tf.expand_dims(labels, axis=-1), preds)
+            grads = tape.gradient(loss, self.model.trainable_weights)
+            optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
+        test_preds = self.model.predict(test_images)
+        test_preds = np.round(test_preds)
+        print(test_labels)
+        print(test_preds)
 
-                # Convert outputs to probabilities using sigmoid since it's a binary classification
-                probs = torch.sigmoid(outputs)
+        return self.model.predict(X_test)
 
-                # Convert these probabilities to binary predictions (0 or 1)
-                batch_predictions = (probs > 0.5).int()
 
-                # Move predictions to the CPU and convert to numpy array
-                predictions.append(batch_predictions.cpu().numpy())
-
-        # Flatten the batched predictions and return
-        return np.concatenate(predictions, axis=0)
-
-    @classmethod
-    def get_X_and_Y(cls, classification_dataset, embedding_model, max_seq_len):
-        codes, labels = classification_dataset.get_texts(), classification_dataset.get_labels()
-
-        X = embedding_model.text_to_indexes(codes)
-        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
-        Y = np.array([1 if label == True else 0 for label in labels])
-        return X, Y
