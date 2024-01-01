@@ -18,7 +18,7 @@ class MLPBaseLineClassifier(ClassifierModel):
         self.dataset_name = dataset_name
 
     @classmethod
-    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+    def from_training(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         dataset_name = metadata.get('dataset_name')
 

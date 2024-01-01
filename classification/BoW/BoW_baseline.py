@@ -19,7 +19,7 @@ class BOWBaseLineClassifier(ClassifierModel):
         self.dataset_name = dataset_name
 
     @classmethod
-    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+    def from_training(cls, train_dataset, validation_dataset=None, metadata=None):
         dataset_name = metadata.get('dataset_name')
         codes, labels = train_dataset.get_texts(), train_dataset.get_labels()
         vectorizer = CountVectorizer()

@@ -8,10 +8,10 @@ from classification.torch_classifier.classifiers import TorchClassifier, TorchHA
 from classification.utils import LineLevelToFileLevelDatasetMapper
 from config import ORIGINAL_FILE_LEVEL_DATA_DIR, LINE_LEVEL_DATA_SAVE_DIR, METHOD_LEVEL_DATA_SAVE_DIR
 from data.models import Project, AggregatedDatasetImporter
-from classification.keras_classifiers.classifiers import KerasClassifier, KerasDenseClassifier, \
+from classification.keras_classifier.keras_classifiers import KerasClassifier, KerasDenseClassifier, \
     KerasDenseClassifierWithEmbedding, KerasDenseClassifierWithExternalEmbedding, KerasCNNClassifierWithEmbedding, \
     KerasCNNClassifier, KerasLSTMClassifier, KerasBiLSTMClassifier, KerasGRUClassifier, KerasCNNandLSTMClassifier, \
-    KerasHANClassifier
+    KerasHANClassifier, KerasMAMLClassifier1, SiameseClassifier, ReptileClassifier
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor, \
@@ -110,7 +110,7 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
     embedding_matrix = get_embedding_matrix(embedding_model)
     metadata['embedding_matrix'] = embedding_matrix
 
-    classifier_model = classifier_cls.train(
+    classifier_model = classifier_cls.from_training(
         train_dataset=train_dataset,
         validation_dataset=validation_dataset,
         metadata=metadata,
@@ -254,7 +254,7 @@ def keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_import
         train_dataset_name=train_dataset_name,
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
-        classifier_cls=KerasCNNClassifierWithEmbedding,
+        classifier_cls=ReptileClassifier,
         embedding_cls=GensimWord2VecModel,
         token_extractor=token_extractor,
         embedding_dim=50,

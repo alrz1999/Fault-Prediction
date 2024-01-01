@@ -86,7 +86,7 @@ class TorchClassifier(ClassifierModel):
         self.embedding_model = embedding_model
 
     @classmethod
-    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+    def from_training(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')
@@ -230,7 +230,7 @@ class TorchHANClassifier(ClassifierModel):
         return weight_tensor
 
     @classmethod
-    def train(cls, train_dataset, validation_dataset=None, metadata=None):
+    def from_training(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
         epochs = metadata.get('epochs')

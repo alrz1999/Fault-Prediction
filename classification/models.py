@@ -1,6 +1,8 @@
 import enum
 
 import matplotlib.pyplot as plt
+from keras.src.utils import pad_sequences
+import numpy as np
 
 plt.style.use('ggplot')
 
@@ -62,8 +64,8 @@ class ClassifierModel:
         plt.show()
 
     @classmethod
-    def train(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
-              metadata=None):
+    def from_training(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
+                      metadata=None):
         raise NotImplementedError()
 
     @classmethod
@@ -83,3 +85,12 @@ class ClassifierModel:
     @classmethod
     def get_result_dataset_path(cls, dataset_name):
         raise NotImplementedError()
+
+    @classmethod
+    def prepare_X_and_Y(cls, classification_dataset, embedding_model, max_seq_len):
+        codes, labels = classification_dataset.get_texts(), classification_dataset.get_labels()
+
+        X = embedding_model.text_to_indexes(codes)
+        X = pad_sequences(X, padding='post', maxlen=max_seq_len)
+        Y = np.array([1 if label == True else 0 for label in labels])
+        return X, Y
