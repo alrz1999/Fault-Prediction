@@ -816,8 +816,8 @@ class ReptileClassifier(KerasClassifier):
 
     @classmethod
     def build_classifier(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
-        # return SiameseClassifier.build_classifier(vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs)
-        return KerasCNNClassifierWithEmbedding.build_classifier(vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs)
+        return SiameseClassifier.build_classifier(vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs)
+        # return KerasCNNClassifierWithEmbedding.build_classifier(vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs)
 
     def fit(self, X_train, Y_train, batch_size, class_weight_dict, dataset_name, epochs, X_valid, Y_valid):
         learning_rate = 0.003
@@ -1190,6 +1190,10 @@ class SiameseClassifier(KerasClassifier):
         base_network = cls.build_base_network(vocab_size, embedding_dim, max_seq_len)
         siamese_network = cls.build_siamese_network(base_network)
         siamese_network.fit([siamese_pairs[:, 0], siamese_pairs[:, 1]], siamese_labels, batch_size=32, epochs=10)
+
+        for layer in base_network.layers:
+            layer.trainable = False
+
         # Define the classifier using the output of the base network
         real_input = layers.Input(shape=(None,))
         base_features = base_network(real_input)
