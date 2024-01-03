@@ -1203,3 +1203,86 @@ class SiameseClassifier(KerasClassifier):
         classifier_model = tf.keras.Model(inputs=real_input, outputs=classification_output)
         classifier_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         return classifier_model
+
+
+class TripletNetwork(KerasClassifier):
+
+    @classmethod
+    def generate_balanced_triplets(cls, embeddings, labels):
+        triplets = []
+
+        label_indices = {label: np.where(labels == label)[0] for label in set(labels)}
+
+        for idx, (embedding, label) in enumerate(zip(embeddings, labels)):
+            pos_indices = label_indices[label]
+            pos_idx = np.random.choice([i for i in pos_indices if i != idx], 1)[0]
+
+            neg_labels = [l for l in label_indices if l != label]
+            neg_label = np.random.choice(neg_labels)
+            neg_idx = np.random.choice(label_indices[neg_label], 1)[0]
+
+            triplets.append([embedding, embeddings[pos_idx], embeddings[neg_idx]])
+
+        shuffle(triplets)
+
+        return np.array(triplets)
+
+    @classmethod
+    def build_base_network(cls, vocab_size, embedding_dim, max_seq_len):
+        input = layers.Input(shape=(max_seq_len,))
+        x = layers.Embedding(input_dim=vocab_size, output_dim=embedding_dim, input_length=max_seq_len)(input)
+        x = layers.Flatten()(x)
+        x = layers.Dense(128, activation='relu')(x)
+        x = layers.Dense(32, activation='relu')(x)
+        return tf.keras.Model(input, x)
+
+    @classmethod
+    def build_triplet_network(cls, base_network):
+        input_shape = (None,)
+        input_anchor = layers.Input(shape=input_shape)
+        input_positive = layers.Input(shape=input_shape)
+        input_negative = layers.Input(shape=input_shape)
+
+        processed_anchor = base_network(input_anchor)
+        processed_positive = base_network(input_positive)
+        processed_negative = base_network(input_negative)
+
+        model = tf.keras.Model(inputs=[input_anchor, input_positive, input_negative],
+                               outputs=[processed_anchor, processed_positive, processed_negative])
+
+        model.compile(loss=TripletNetwork.triplet_loss)
+
+        return model
+
+    @staticmethod
+    def triplet_loss(y_true, y_pred, alpha=0.2):
+        anchor, positive, negative = y_pred[0], y_pred[1], y_pred[2]
+        positive_distance = tf.reduce_sum(tf.square(anchor - positive), axis=-1)
+        negative_distance = tf.reduce_sum(tf.square(anchor - negative), axis=-1)
+        loss = tf.maximum(positive_distance - negative_distance + alpha, 0.0)
+        return loss
+
+    @classmethod
+    def build_classifier(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        X_train = kwargs.get('X_train')
+        Y_train = kwargs.get('Y_train')
+
+        triplets = cls.generate_balanced_triplets(X_train, Y_train)
+        base_network = cls.build_base_network(vocab_size, embedding_dim, max_seq_len)
+        triplet_network = cls.build_triplet_network(base_network)
+
+        dummy_labels = np.zeros((triplets.shape[0], 1))
+
+        triplet_network.fit([triplets[:, 0], triplets[:, 1], triplets[:, 2]], dummy_labels, batch_size=32, epochs=10)
+
+        for layer in base_network.layers:
+            layer.trainable = False
+
+        real_input = layers.Input(shape=(None,))
+        base_features = base_network(real_input)
+        classification_output = layers.Dense(64, activation='relu')(base_features)
+        classification_output = layers.Dense(1, activation='sigmoid')(classification_output)
+
+        classifier_model = tf.keras.Model(inputs=real_input, outputs=classification_output)
+        classifier_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        return classifier_model
