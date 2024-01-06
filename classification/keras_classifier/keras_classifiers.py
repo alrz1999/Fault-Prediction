@@ -1286,3 +1286,117 @@ class TripletNetwork(KerasClassifier):
         classifier_model = tf.keras.Model(inputs=real_input, outputs=classification_output)
         classifier_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         return classifier_model
+
+
+class PrototypicalNetwork(KerasClassifier):
+
+    @classmethod
+    def generate_support_query_sets(cls, embeddings, labels, n_way, n_support, n_query):
+        """
+        Generate support and query sets for Prototypical Networks.
+        """
+        unique_labels = np.unique(labels)
+        selected_labels = np.random.choice(unique_labels, size=n_way, replace=False)
+
+        support_embeddings = []
+        support_labels = []
+        query_embeddings = []
+        query_labels = []
+
+        for label in selected_labels:
+            label_indices = np.where(labels == label)[0]
+            chosen_indices = np.random.choice(label_indices, size=n_support + n_query, replace=False)
+            support_indices = chosen_indices[:n_support]
+            query_indices = chosen_indices[n_support:]
+
+            support_embeddings.append(embeddings[support_indices])
+            query_embeddings.append(embeddings[query_indices])
+
+            support_labels.extend([label] * n_support)
+            query_labels.extend([label] * n_query)
+
+        support_embeddings = np.vstack(support_embeddings)
+        query_embeddings = np.vstack(query_embeddings)
+
+        return support_embeddings, np.array(support_labels), query_embeddings, np.array(query_labels)
+
+    @classmethod
+    def build_base_network(cls, embedding_dim, max_seq_len):
+        """
+        Builds a simple network for feature extraction.
+        """
+        model = tf.keras.Sequential([
+            layers.Input(shape=(max_seq_len,)),
+            layers.Dense(128, activation='relu'),
+            layers.Dense(128, activation='relu'),
+            layers.Dense(embedding_dim)
+        ])
+        return model
+
+    @classmethod
+    def compute_prototypes(cls, embeddings, labels, n_way):
+        """
+        Compute the prototype of each class in the support set.
+        """
+        prototypes = []
+        for i in range(n_way):
+            mask = tf.equal(labels, i)
+            prototype = tf.reduce_mean(tf.boolean_mask(embeddings, mask), axis=0)
+            prototypes.append(prototype)
+        return tf.stack(prototypes)
+
+    @classmethod
+    def euclidean_distance(cls, a, b):
+        """
+        Compute the Euclidean distance between two tensors.
+        """
+        return tf.sqrt(tf.reduce_sum(tf.square(a - b), axis=-1))
+
+    @classmethod
+    def build_classifier(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
+        X_train = kwargs.get('X_train')
+        Y_train = kwargs.get('Y_train')
+        n_way, n_support, n_query = 2, 10, 5
+        # Build the base network
+        base_network = cls.build_base_network(embedding_dim, max_seq_len)
+
+        # Training loop
+        optimizer = tf.keras.optimizers.Adam()
+        for epoch in range(10):  # Number of epochs
+            support_embeddings, support_labels, query_embeddings, query_labels = cls.generate_support_query_sets(
+                X_train, Y_train, n_way, n_support, n_query)
+
+            with tf.GradientTape() as tape:
+                # Embedding the support and query sets
+                support_embeddings = base_network(support_embeddings)
+                query_embeddings = base_network(query_embeddings)
+
+                # Compute prototypes
+                prototypes = cls.compute_prototypes(support_embeddings, support_labels, n_way)
+
+                # Calculate distances and loss
+                distances = tf.map_fn(lambda q_embedding: cls.euclidean_distance(q_embedding, prototypes),
+                                      query_embeddings)
+                log_p_y = tf.nn.log_softmax(-distances, axis=-1)
+                correct_indices = tf.stack((tf.range(query_labels.shape[0]), query_labels), axis=1)
+                loss = -tf.reduce_mean(tf.gather_nd(log_p_y, correct_indices))
+
+            gradients = tape.gradient(loss, base_network.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, base_network.trainable_variables))
+
+            if epoch % 1 == 0:
+                print(f'Epoch {epoch + 1}, Loss: {loss.numpy()}')
+
+        # Freeze the base network for feature extraction
+        for layer in base_network.layers:
+            layer.trainable = False
+
+        # Define the classifier using the output of the base network
+        real_input = layers.Input(shape=(None,))
+        base_features = base_network(real_input)
+        classification_output = layers.Dense(64, activation='relu')(base_features)
+        classification_output = layers.Dense(1, activation='sigmoid')(classification_output)  # Binary classification
+        classifier_model = tf.keras.Model(inputs=real_input, outputs=classification_output)
+        classifier_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+        return classifier_model
