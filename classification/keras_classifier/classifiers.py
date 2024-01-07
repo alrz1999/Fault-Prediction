@@ -17,10 +17,9 @@ from sklearn.model_selection import KFold, cross_validate
 from sklearn.utils import compute_class_weight
 from tensorflow.keras import utils
 
-from classification.keras_classifier.Rept import ReptileDataset
+from classification.keras_classifier.Reptile import ReptileDataset
 from classification.keras_classifier.attention_with_context import AttentionWithContext
-from classification.keras_classifier.mml import MAMLDataLoader, MAML
-from classification.keras_classifier.task_generator import TaskGenerator
+from classification.keras_classifier.mml import MAMLDataLoader, MAML, TaskGenerator
 from classification.models import ClassifierModel, ClassificationDataset
 from config import KERAS_SAVE_PREDICTION_DIR, SIMPLE_KERAS_PREDICTION_DIR, KERAS_CNN_SAVE_PREDICTION_DIR
 

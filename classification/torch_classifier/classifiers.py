@@ -1,7 +1,5 @@
-from sklearn.utils import compute_class_weight
 import random
 
-import learn2learn as l2l
 import numpy as np
 import tensorflow as tf
 import torch
@@ -425,6 +423,8 @@ class L2LClassifier(ClassifierModel):
     @classmethod
     def from_training(cls, train_dataset: ClassificationDataset, validation_dataset: ClassificationDataset = None,
                       metadata=None):
+        import learn2learn as l2l
+
         np.random.seed(42)
         embedding_model = metadata.get('embedding_model')
         batch_size = metadata.get('batch_size')
