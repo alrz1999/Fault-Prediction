@@ -70,6 +70,7 @@ class KerasClassifier(ClassifierModel):
         embedding_dim = embedding_model.get_embedding_dim() if embedding_model else metadata.get('embedding_dim')
         # available methods: smote, adasyn, rus, tomek, nearmiss, smotetomek
         imbalanced_learn_method = metadata.get('imbalanced_learn_method')
+        show_classifier_model_summary = metadata.get('show_summary', True)
 
         X_train, Y_train = cls.prepare_X_and_Y(train_dataset, embedding_model, max_seq_len)
         if max_seq_len is None:
@@ -91,10 +92,15 @@ class KerasClassifier(ClassifierModel):
             embedding_dim,
             embedding_matrix,
             max_seq_len,
-            show_summary=True,
             X_train=X_train,
             Y_train=Y_train
         )
+
+        if show_classifier_model_summary:
+            classifier.summary()
+
+        cls.export_model_plot(classifier)
+
         model = cls(classifier, embedding_model)
         model.fit(X_train, Y_train, batch_size, class_weight_dict, dataset_name, epochs, X_valid, Y_valid)
         model.evaluate(X_train, Y_train)
@@ -154,7 +160,6 @@ class KerasClassifier(ClassifierModel):
                 embedding_dim=embedding_dim,
                 embedding_matrix=embedding_matrix,
                 max_seq_len=max_seq_len,
-                show_summary=False
             )
 
             class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y), y=Y)
@@ -190,9 +195,7 @@ class KerasDenseClassifier(KerasClassifier):
         model.add(layers.Dense(1, activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-        model.summary()
 
-        cls.export_model_plot(model)
         return model
 
     @classmethod
@@ -218,9 +221,7 @@ class KerasDenseClassifierWithEmbedding(KerasClassifier):
         model.add(layers.Dense(1, activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-        model.summary()
 
-        cls.export_model_plot(model)
         return model
 
 
@@ -256,9 +257,7 @@ class KerasDenseClassifierWithExternalEmbedding(KerasClassifier):
 
         # Compile the model with binary crossentropy loss and an adam optimizer.
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.summary()
 
-        cls.export_model_plot(model)
         return model
 
 
@@ -277,10 +276,7 @@ class KerasCNNClassifier(KerasClassifier):
         predictions = layers.Dense(1, activation="sigmoid", name="predictions")(x)
         model = tf.keras.Model(inputs, predictions)
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        if kwargs.get('show_summary'):
-            model.summary()
 
-        cls.export_model_plot(model)
         return model
 
     # @classmethod
@@ -298,8 +294,7 @@ class KerasCNNClassifier(KerasClassifier):
     #     model.add(layers.Dropout(0.25))
     #     model.add(layers.Dense(1, activation='sigmoid', name="predictions"))
     #     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    #     if kwargs.get('show_summary'):
-    #         model.summary()
+
     #     return model
 
     @classmethod
@@ -328,9 +323,7 @@ class KerasCNNClassifierWithEmbedding(KerasClassifier):
         model.add(layers.Dense(100, activation="relu"))
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.summary()
 
-        # cls.export_model_plot(model)
         return model
 
     @classmethod
@@ -351,9 +344,7 @@ class KerasLSTMClassifier(KerasClassifier):
         x = layers.Activation('sigmoid')(x)
         model = tf.keras.Model(inputs=inputs, outputs=x)
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.summary()
 
-        cls.export_model_plot(model)
         return model
 
 
@@ -380,9 +371,7 @@ class KerasBiLSTMClassifier(KerasClassifier):
 
         model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.summary()
 
-        cls.export_model_plot(model)
         return model
 
     # @classmethod
@@ -429,7 +418,6 @@ class KerasGRUClassifier(KerasClassifier):
     #     model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
     #
     #     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-    #     model.summary()
     #     return model
 
     @classmethod
@@ -454,9 +442,7 @@ class KerasGRUClassifier(KerasClassifier):
         model.add(layers.Dense(32, activation='relu'))
         model.add(layers.Dense(1, activation='sigmoid'))
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-        model.summary()
 
-        cls.export_model_plot(model)
         return model
 
 
@@ -483,7 +469,6 @@ class KerasCNNandLSTMClassifier(KerasClassifier):
     #     model.add(layers.Dense(1, activation="sigmoid", name="predictions"))
     #
     #     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-    #     model.summary()
     #     return model
     #
     @classmethod
@@ -507,7 +492,6 @@ class KerasCNNandLSTMClassifier(KerasClassifier):
         model.add(layers.Dense(1, activation='sigmoid'))
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-        cls.export_model_plot(model)
         return model
 
 
