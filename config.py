@@ -32,3 +32,5 @@ SIMPLE_KERAS_PREDICTION_DIR = os.path.join(PROJECT_ROOT, 'output', 'prediction',
 
 # Define path for the Word2Vec model
 WORD2VEC_DIR = os.path.join(PROJECT_ROOT, 'output', 'Word2Vec_model')
+
+RESULT_METRICS_DIR = os.path.join(PROJECT_ROOT, 'metrics')

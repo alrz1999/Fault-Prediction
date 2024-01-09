@@ -1,10 +1,18 @@
+from pathlib import Path
+
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, \
     balanced_accuracy_score, matthews_corrcoef, roc_curve, auc, precision_recall_curve
 
+import pandas as pd
+import os
 
-def evaluate(true_labels, predicted_probabilities):
+from config import RESULT_METRICS_DIR
+
+
+def evaluate(true_labels, predicted_probabilities, train_dataset_name=None, test_dataset_name=None,
+             classifier_name=None):
     predicted_labels = list([round(x[0]) for x in predicted_probabilities])
     print(f'predicted_labels = {predicted_labels}')
 
@@ -59,6 +67,37 @@ def evaluate(true_labels, predicted_probabilities):
     # Calculate Matthews Correlation Coefficient
     mcc = matthews_corrcoef(true_labels, predicted_labels)
     print("Matthews Correlation Coefficient (MCC):", mcc)
+
+    if train_dataset_name and test_dataset_name and classifier_name:
+        store_metric('accuracy', train_dataset_name, test_dataset_name, classifier_name, accuracy)
+        store_metric('precision', train_dataset_name, test_dataset_name, classifier_name, precision)
+        store_metric('recall', train_dataset_name, test_dataset_name, classifier_name, recall)
+        store_metric('f1', train_dataset_name, test_dataset_name, classifier_name, f1)
+        store_metric('AUC', train_dataset_name, test_dataset_name, classifier_name, roc_auc)
+        store_metric('balanced_acc', train_dataset_name, test_dataset_name, classifier_name, balanced_acc)
+        store_metric('mcc', train_dataset_name, test_dataset_name, classifier_name, mcc)
+
+
+def store_metric(metric_name, train_dataset_name, test_dataset_name, classifier_name, metric_value):
+    Path(RESULT_METRICS_DIR).mkdir(parents=True, exist_ok=True)
+
+    filename = os.path.join(RESULT_METRICS_DIR, f"{metric_name}.csv")
+
+    if os.path.exists(filename):
+        df = pd.read_csv(filename, index_col=[0, 1])
+    else:
+        df = pd.DataFrame(columns=['Train Dataset', 'Test Dataset', classifier_name])
+        df.set_index(['Train Dataset', 'Test Dataset'], inplace=True)
+
+    if classifier_name not in df.columns:
+        df[classifier_name] = pd.Series(dtype='float64')
+
+    # Check if the index exists, if not, create it
+    if (train_dataset_name, test_dataset_name) not in df.index:
+        df.loc[(train_dataset_name, test_dataset_name), :] = None
+
+    df.at[(train_dataset_name, test_dataset_name), classifier_name] = round(metric_value, ndigits=2)
+    df.to_csv(filename)
 
 
 def main():

@@ -121,7 +121,13 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         evaluation_dataset = ClassificationDataset(import_dataset(eval_dataset_importer, to_lowercase), dataset_type)
         predicted_probabilities = classifier_model.predict(evaluation_dataset, metadata=metadata)
         true_labels = evaluation_dataset.get_labels()
-        evaluate(true_labels, predicted_probabilities)
+        evaluate(
+            true_labels=true_labels,
+            predicted_probabilities=predicted_probabilities,
+            train_dataset_name=train_dataset_name,
+            test_dataset_name=eval_dataset_importer.release_name,
+            classifier_name=classifier_cls.__name__
+        )
 
 
 def mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
@@ -472,9 +478,9 @@ if __name__ == '__main__':
     # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
