@@ -101,7 +101,8 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'learning_rate': 0.001,
         'dropout_ratio': 0.5,
         'class_weight_strategy': None,  # up_weight_majority, up_weight_minority
-        'imbalanced_learn_method': None  # smote, adasyn, rus, tomek, nearmiss, smotetomek
+        'imbalanced_learn_method': None,  # smote, adasyn, rus, tomek, nearmiss, smotetomek,
+        'load_best_model': True
     }
 
     embedding_model = get_embedding_model(embedding_cls, metadata, train_dataset)

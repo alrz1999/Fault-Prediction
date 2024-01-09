@@ -16,6 +16,7 @@ from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold, cross_validate
 from sklearn.utils import compute_class_weight
 from tensorflow.keras import utils
+from tensorflow.keras.models import load_model
 
 from classification.keras_classifier.Reptile import ReptileDataset
 from classification.keras_classifier.attention_with_context import AttentionWithContext
@@ -29,10 +30,13 @@ class KerasClassifier(ClassifierModel):
         self.classifier = classifier
         self.embedding_model = embedding_model
 
-    def fit(self, X_train, Y_train, batch_size, class_weight_dict, dataset_name, epochs, X_valid, Y_valid):
+    def get_model_save_path(self, train_dataset_name):
         class_name = self.__class__.__name__
+        return f'models/{class_name}-{train_dataset_name}.h5'
+
+    def fit(self, X_train, Y_train, batch_size, class_weight_dict, train_dataset_name, epochs, X_valid, Y_valid):
         early_stopping = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
-        model_checkpoint = ModelCheckpoint(filepath=f'models/{class_name}-{dataset_name}.h5', monitor='val_loss',
+        model_checkpoint = ModelCheckpoint(filepath=self.get_model_save_path(train_dataset_name), monitor='val_loss',
                                            save_best_only=True)
         history = self.classifier.fit(
             X_train, Y_train,
@@ -64,13 +68,14 @@ class KerasClassifier(ClassifierModel):
         epochs = metadata.get('epochs')
         max_seq_len = metadata.get('max_seq_len')
         embedding_matrix = metadata.get('embedding_matrix')
-        dataset_name = metadata.get('dataset_name')
+        train_dataset_name = metadata.get('dataset_name')
         class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
         vocab_size = embedding_model.get_vocab_size() if embedding_model else metadata.get('vocab_size')
         embedding_dim = embedding_model.get_embedding_dim() if embedding_model else metadata.get('embedding_dim')
         # available methods: smote, adasyn, rus, tomek, nearmiss, smotetomek
         imbalanced_learn_method = metadata.get('imbalanced_learn_method')
         show_classifier_model_summary = metadata.get('show_summary', True)
+        load_best_model = metadata.get('load_best_model', False)
 
         X_train, Y_train = cls.prepare_X_and_Y(train_dataset, embedding_model, max_seq_len)
         if max_seq_len is None:
@@ -102,7 +107,12 @@ class KerasClassifier(ClassifierModel):
         cls.export_model_plot(classifier)
 
         model = cls(classifier, embedding_model)
-        model.fit(X_train, Y_train, batch_size, class_weight_dict, dataset_name, epochs, X_valid, Y_valid)
+        model.fit(X_train, Y_train, batch_size, class_weight_dict, train_dataset_name, epochs, X_valid, Y_valid)
+
+        if load_best_model:
+            classifier = load_model(model.get_model_save_path(train_dataset_name))
+            model = cls(classifier, embedding_model)
+
         model.evaluate(X_train, Y_train)
         return model
 
@@ -802,7 +812,7 @@ class ReptileClassifier(KerasClassifier):
         return SiameseClassifier.build_classifier(vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs)
         # return KerasCNNClassifierWithEmbedding.build_classifier(vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs)
 
-    def fit(self, X_train, Y_train, batch_size, class_weight_dict, dataset_name, epochs, X_valid, Y_valid):
+    def fit(self, X_train, Y_train, batch_size, class_weight_dict, train_dataset_name, epochs, X_valid, Y_valid):
         learning_rate = 0.003
         meta_step_size = 0.25
 
@@ -1041,7 +1051,7 @@ class KerasMAMLClassifier1(KerasClassifier):
         # Cleaning up the persistent tape
         del meta_tape
 
-    def fit(self, X_train, Y_train, batch_size, class_weight_dict, dataset_name, epochs, X_valid, Y_valid):
+    def fit(self, X_train, Y_train, batch_size, class_weight_dict, train_dataset_name, epochs, X_valid, Y_valid):
         task_dataset = [(X_train[i], Y_train[i]) for i in range(len(X_train))]
         task_batches = TaskGenerator(task_dataset, 20, 5).generate()
 
@@ -1060,7 +1070,7 @@ class KerasMAMLClassifier2(KerasClassifier):
                                                                 max_seq_len,
                                                                 **kwargs)
 
-    def fit(self, X_train, Y_train, batch_size, class_weight_dict, dataset_name, epochs, X_valid, Y_valid):
+    def fit(self, X_train, Y_train, batch_size, class_weight_dict, train_dataset_name, epochs, X_valid, Y_valid):
         inner_lr = 0.01
         outer_lr = 0.001
         batch_size = 20
