@@ -13,7 +13,8 @@ from config import RESULT_METRICS_DIR
 
 def evaluate(true_labels, predicted_probabilities, train_dataset_name=None, test_dataset_name=None,
              classifier_name=None):
-    predicted_labels = list([round(x[0]) for x in predicted_probabilities])
+    predicted_probabilities = np.squeeze(predicted_probabilities)
+    predicted_labels = np.round(predicted_probabilities)
     print(f'predicted_labels = {predicted_labels}')
 
     # Calculate the ROC curve
