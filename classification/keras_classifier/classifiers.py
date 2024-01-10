@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold, cross_validate
 from sklearn.utils import compute_class_weight
 from tensorflow.keras import utils
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model, save_model
 
 from classification.keras_classifier.Reptile import ReptileDataset
 from classification.keras_classifier.attention_with_context import AttentionWithContext
@@ -922,6 +922,8 @@ class ReptileClassifier(KerasClassifier):
         test_preds = tf.argmax(test_preds).numpy()
 
         plt.show()
+
+        save_model(self.classifier, self.get_model_save_path(train_dataset_name))
 
     def predict(self, dataset, metadata=None):
         max_seq_len = metadata.get('max_seq_len')

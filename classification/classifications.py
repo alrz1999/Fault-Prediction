@@ -416,6 +416,82 @@ def torch_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
     )
 
 
+def reptile_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 100
+    to_lowercase = True
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=ReptileClassifier,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=ASTExtractor(False),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=10,
+        validation_dataset_importer=eval_dataset_importers[0]
+    )
+
+
+def siamese_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 100
+    to_lowercase = True
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=SiameseClassifier,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=ASTExtractor(False),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=10,
+        validation_dataset_importer=eval_dataset_importers[0]
+    )
+
+
+def triplet_network_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 100
+    to_lowercase = True
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=TripletNetwork,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=ASTExtractor(False),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=10,
+        validation_dataset_importer=eval_dataset_importers[0]
+    )
+
+
+def prototypical_network_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 100
+    to_lowercase = True
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=PrototypicalNetwork,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=ASTExtractor(False),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=10,
+        validation_dataset_importer=eval_dataset_importers[0]
+    )
+
+
 def get_cross_release_dataset():
     project = Project(
         name="poi",
@@ -485,6 +561,11 @@ if __name__ == '__main__':
     # keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # reptile_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # siamese_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # triplet_network_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # prototypical_network_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+
     # keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
