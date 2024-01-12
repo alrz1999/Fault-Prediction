@@ -263,6 +263,15 @@ class ASTExtractor(TokenExtractor):
         return methods_data
 
 
+class CodeBertTokenizer(TokenExtractor):
+    def __init__(self):
+        from transformers import AutoTokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base")
+
+    def extract_tokens(self, input_text):
+        return self.tokenizer.tokenize(input_text)
+
+
 def test():
     input_text = """
 package org.apache.tools.ant;

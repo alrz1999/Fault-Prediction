@@ -1,4 +1,5 @@
 import os
+from itertools import chain
 
 import gensim
 import numpy as np
@@ -8,7 +9,7 @@ from keras.src.preprocessing.text import Tokenizer
 from sklearn.feature_extraction.text import CountVectorizer
 
 from config import WORD2VEC_DIR
-from embedding.preprocessing.token_extraction import TokenExtractor
+from embedding.preprocessing.token_extraction import TokenExtractor, CodeBertTokenizer
 
 
 class EmbeddingModel:
@@ -28,7 +29,7 @@ class EmbeddingModel:
     def get_model_save_path(cls, dataset_name, metadata):
         raise NotImplementedError()
 
-    def text_to_vec(self, data):
+    def text_to_vec(self, texts):
         raise NotImplementedError()
 
     def text_to_indexes(self, texts):
@@ -238,3 +239,86 @@ class KerasTextVectorizer(EmbeddingModel):
 
     def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
         return None
+
+
+class CodeBertEmbedding(EmbeddingModel):
+    def __init__(self, model, dataset_name, embedding_dim, token_extractor, tokens):
+        self.model = model
+        self.dataset_name = dataset_name
+        self.embedding_dim = embedding_dim
+        self.token_extractor = token_extractor
+        self.tokens = tokens
+        self.word_to_index_dict = {token: idx for idx, token in enumerate(self.tokens)}
+
+    @classmethod
+    def train(cls, texts, metadata):
+        from transformers import AutoModel
+
+        embedding_dim = 768
+        dataset_name = metadata.get('dataset_name')
+        token_extractor = CodeBertTokenizer()
+
+        model = AutoModel.from_pretrained("microsoft/codebert-base")
+
+        text_tokens = [token_extractor.extract_tokens(text) for text in texts]
+        all_tokens = list(set(chain.from_iterable(text_tokens)))
+        all_tokens.insert(0, '<pad>')
+        output_model = cls(model, dataset_name, embedding_dim, token_extractor, all_tokens)
+
+        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+
+        return output_model
+
+    def text_to_vec(self, texts):
+        import torch
+
+        vecs = []
+        for text in texts:
+            tokens = self.token_extractor.extract_tokens(text)
+            if len(tokens) > 0:
+                vec = [self.model(
+                    torch.tensor([self.token_extractor.tokenizer.convert_tokens_to_ids([word])]))[
+                           0].squeeze().detach().numpy()
+                       if word in self.word_to_index_dict else np.zeros(self.embedding_dim) for word in tokens]
+            else:
+                vec = [np.zeros(self.embedding_dim)]
+            vec = np.mean(vec, axis=0)
+            vecs.append(vec)
+        return vecs
+
+    def text_to_indexes(self, texts):
+        texts_indexes = []
+        for text in texts:
+            text_indexes = [
+                self.word_to_index_dict[word] for word
+                in
+                self.token_extractor.extract_tokens(text) if word in self.word_to_index_dict.keys()]
+            texts_indexes.append(text_indexes)
+        return texts_indexes
+
+    def get_word_to_index_dict(self):
+        return self.word_to_index_dict
+
+    def get_vocab_size(self):
+        return len(self.tokens)
+
+    def get_embedding_matrix(self, word_index, vocab_size, embedding_dim):
+        import torch
+
+        embedding_matrix = np.zeros((vocab_size, embedding_dim))
+
+        present_words = 0
+        for word in self.word_to_index_dict:
+            if word in word_index:
+                present_words += 1
+                vec = self.model(
+                    torch.tensor([self.token_extractor.tokenizer.convert_tokens_to_ids([word])]))[
+                    0].squeeze().detach().numpy()
+                embedding_matrix[word_index[word]] = np.array(vec, dtype=np.float32)[:embedding_dim]
+        absent_words = len(word_index) - present_words
+        print('Total absent words are', absent_words, 'which is', "%0.2f" % (absent_words * 100 / len(word_index)),
+              '% of total words')
+        return embedding_matrix
+
+    def get_embedding_dim(self):
+        return 768
