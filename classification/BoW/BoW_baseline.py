@@ -20,21 +20,20 @@ class BOWBaseLineClassifier(ClassifierModel):
 
     @classmethod
     def from_training(cls, train_dataset, validation_dataset=None, metadata=None):
+        embedding_model = metadata.get('embedding_model')
         dataset_name = metadata.get('dataset_name')
-        codes, labels = train_dataset.get_texts(), train_dataset.get_labels()
-        vectorizer = CountVectorizer()
-        vectorizer.fit(codes)
-        X = vectorizer.transform(codes).toarray()
-        train_feature = pd.DataFrame(X)
-        Y = np.array([1 if label == True else 0 for label in labels])
+        max_seq_len = metadata.get('max_seq_len')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        # available methods: smote, adasyn, rus, tomek, nearmiss, smotetomek
+        imbalanced_learn_method = metadata.get('imbalanced_learn_method')
 
-        sm = SMOTE(random_state=42)
-        X, Y = sm.fit_resample(train_feature, Y)
+        X, Y = cls.prepare_X_and_Y(train_dataset, embedding_model, max_seq_len)
+        X, Y, _ = cls.get_balanced_data_and_class_weight_dict(X, Y, class_weight_strategy, imbalanced_learn_method)
 
         clf = LogisticRegression(solver='liblinear')
         clf.fit(X, Y)
 
-        return cls(clf, vectorizer, dataset_name)
+        return cls(clf, embedding_model, dataset_name)
 
     @classmethod
     def get_vectorizer_model_path(cls, dataset_name):
@@ -62,10 +61,10 @@ class BOWBaseLineClassifier(ClassifierModel):
         return os.path.join(BOW_SAVE_MODEL_DIR, re.sub('-.*', '', dataset_name) + "-BoW-model.bin")
 
     def predict(self, dataset, metadata=None):
-        test_code, labels = dataset.get_texts(), dataset.get_labels()
+        embedding_model = metadata.get('embedding_model')
+        max_seq_len = metadata.get('max_seq_len')
 
-        X = self.vectorizer.transform(test_code).toarray()
-
+        X, _ = self.prepare_X_and_Y(dataset, embedding_model, max_seq_len)
         return self.model.predict(X)
 
     @classmethod

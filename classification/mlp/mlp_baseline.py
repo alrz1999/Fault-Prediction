@@ -21,15 +21,16 @@ class MLPBaseLineClassifier(ClassifierModel):
     def from_training(cls, train_dataset, validation_dataset=None, metadata=None):
         embedding_model = metadata.get('embedding_model')
         dataset_name = metadata.get('dataset_name')
+        class_weight_strategy = metadata.get('class_weight_strategy')  # up_weight_majority, up_weight_minority
+        # available methods: smote, adasyn, rus, tomek, nearmiss, smotetomek
+        imbalanced_learn_method = metadata.get('imbalanced_learn_method')
 
         codes, labels = train_dataset.get_texts(), train_dataset.get_labels()
 
         X = np.array(embedding_model.text_to_vec(codes))
         Y = np.array([1 if label == True else 0 for label in labels])
 
-        sm = SMOTE(random_state=42)
-        X, Y = sm.fit_resample(X, Y)
-        print('SMOTE Done')
+        X, Y, _ = cls.get_balanced_data_and_class_weight_dict(X, Y, class_weight_strategy, imbalanced_learn_method)
 
         clf = MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=500, random_state=42)
         scaler = StandardScaler()

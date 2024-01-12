@@ -131,7 +131,7 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
 
 
 def mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = None
+    max_seq_len = 600
     to_lowercase = False
     classify(
         train_dataset_name=train_dataset_name,
@@ -139,8 +139,8 @@ def mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_impo
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=MLPBaseLineClassifier,
         embedding_cls=GensimWord2VecModel,
-        token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
-        embedding_dim=50,
+        token_extractor=ASTExtractor(False),
+        embedding_dim=60,
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=10,
@@ -155,9 +155,9 @@ def bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_impo
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=BOWBaseLineClassifier,
-        embedding_cls=None,
+        embedding_cls=SklearnCountTokenizer,
         token_extractor=None,
-        embedding_dim=50,
+        embedding_dim=60,
         max_seq_len=None,
         batch_size=32,
         epochs=10,
@@ -436,7 +436,7 @@ def reptile_classifier(train_dataset_name, train_dataset_importer, eval_dataset_
 
 
 def siamese_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 100
+    max_seq_len = 600
     to_lowercase = True
 
     classify(
@@ -446,10 +446,10 @@ def siamese_classifier(train_dataset_name, train_dataset_importer, eval_dataset_
         classifier_cls=SiameseClassifier,
         embedding_cls=GensimWord2VecModel,
         token_extractor=ASTExtractor(False),
-        embedding_dim=50,
+        embedding_dim=60,
         max_seq_len=max_seq_len,
         batch_size=32,
-        epochs=10,
+        epochs=30,
         validation_dataset_importer=eval_dataset_importers[0]
     )
 

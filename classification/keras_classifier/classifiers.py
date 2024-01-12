@@ -4,9 +4,6 @@ from random import shuffle
 
 import numpy as np
 import tensorflow as tf
-from imblearn.combine import SMOTETomek
-from imblearn.over_sampling import SMOTE, ADASYN
-from imblearn.under_sampling import RandomUnderSampler, TomekLinks, NearMiss
 from keras import layers, Sequential
 from keras.src import regularizers
 from keras.src.callbacks import EarlyStopping, ModelCheckpoint
@@ -82,7 +79,7 @@ class KerasClassifier(ClassifierModel):
             max_seq_len = X_train.shape[1]
             metadata['max_seq_len'] = max_seq_len
 
-        X_train, Y_train, class_weight_dict = cls.get_balanced_data_and_class_wieght_dict(X_train, Y_train,
+        X_train, Y_train, class_weight_dict = cls.get_balanced_data_and_class_weight_dict(X_train, Y_train,
                                                                                           class_weight_strategy,
                                                                                           imbalanced_learn_method)
 
@@ -115,46 +112,6 @@ class KerasClassifier(ClassifierModel):
 
         model.evaluate(X_train, Y_train)
         return model
-
-    @classmethod
-    def get_balanced_data_and_class_wieght_dict(cls, X_train, Y_train, class_weight_strategy, imbalanced_learn_method):
-        minority_class_count = np.sum(Y_train == 1)
-        majority_class_count = np.sum(Y_train == 0)
-        print(f'minority_class_count: {minority_class_count}')
-        print(f'majority_class_count: {majority_class_count}')
-        desired_majority_count = minority_class_count * 2
-        sampling_strategy = {0: desired_majority_count, 1: minority_class_count}
-        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
-        if imbalanced_learn_method == 'smote':
-            sm = SMOTE(random_state=42)
-            X_train, Y_train = sm.fit_resample(X_train, Y_train)
-        elif imbalanced_learn_method == 'adasyn':
-            adasyn = ADASYN(random_state=42)
-            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
-        elif imbalanced_learn_method == 'rus':
-            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
-            X_train, Y_train = rus.fit_resample(X_train, Y_train)
-        elif imbalanced_learn_method == 'tomek':
-            tomek = TomekLinks()
-            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
-        elif imbalanced_learn_method == 'nearmiss':
-            near_miss = NearMiss()
-            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
-        elif imbalanced_learn_method == 'smotetomek':
-            smotetomek = SMOTETomek(random_state=42)
-            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
-        if class_weight_strategy == 'up_weight_majority':
-            if imbalanced_learn_method not in {'nearmiss', 'rus', 'tomek'}:
-                raise Exception(f"imbalanced_learn_method {imbalanced_learn_method} is not a down-sampling so "
-                                f"majority up-weighing is not allowed")
-            class_weight_dict = {0: majority_class_count / desired_majority_count, 1: 1}
-        elif class_weight_strategy == 'up_weight_minority':
-            class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y_train), y=Y_train)
-            class_weight_dict = dict(enumerate(class_weights))
-        else:
-            class_weight_dict = None
-        print(f'class_weight_dict = {class_weight_dict}')
-        return X_train, Y_train, class_weight_dict
 
     @classmethod
     def k_fold_cross_validation(cls, X, Y, batch_size, embedding_dim, embedding_matrix, epochs, max_seq_len,
@@ -1151,11 +1108,9 @@ class SiameseClassifier(KerasClassifier):
     @classmethod
     def build_base_network(cls, vocab_size, embedding_dim, max_seq_len):
         input = layers.Input(shape=(max_seq_len,))
-        x = layers.Embedding(input_dim=vocab_size, output_dim=embedding_dim, input_length=max_seq_len)(input)
-        x = layers.Flatten()(x)
-        # Flatten or apply global pooling here if necessary
-        x = layers.Dense(128, activation='relu')(x)
-        x = layers.Dense(128, activation='relu')(x)
+        x = layers.Embedding(input_dim=vocab_size, output_dim=embedding_dim, input_length=max_seq_len, mask_zero=True, trainable=True)(input)
+        x = layers.Conv1D(300, 5, padding="same", activation="relu")(x)
+        x = layers.GlobalMaxPooling1D()(x)
         return tf.keras.Model(input, x)
 
     @classmethod

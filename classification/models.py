@@ -3,6 +3,10 @@ import enum
 import matplotlib.pyplot as plt
 from keras.src.utils import pad_sequences
 import numpy as np
+from imblearn.combine import SMOTETomek
+from imblearn.over_sampling import SMOTE, ADASYN
+from imblearn.under_sampling import RandomUnderSampler, TomekLinks, NearMiss
+from sklearn.utils import compute_class_weight
 
 plt.style.use('ggplot')
 
@@ -94,3 +98,53 @@ class ClassifierModel:
         X = pad_sequences(X, padding='post', maxlen=max_seq_len)
         Y = np.array([1 if label == True else 0 for label in labels])
         return X, Y
+
+    @classmethod
+    def get_balanced_data_and_class_weight_dict(cls, X_train, Y_train, class_weight_strategy, imbalanced_learn_method):
+        one_count = np.sum(Y_train == 1)
+        zero_count = np.sum(Y_train == 0)
+        if one_count > zero_count:
+            minority_class_count = zero_count
+            majority_class_count = one_count
+            minor_class = 0
+            major_class = 1
+        else:
+            minority_class_count = one_count
+            majority_class_count = zero_count
+            minor_class = 1
+            major_class = 0
+        print(f'{minor_class} minority_class_count: {minority_class_count}')
+        print(f'{major_class} majority_class_count: {majority_class_count}')
+        desired_majority_count = minority_class_count * 2
+        sampling_strategy = {major_class: desired_majority_count, minor_class: minority_class_count}
+        print(f'imbalanced_learn_method = {imbalanced_learn_method}')
+        if imbalanced_learn_method == 'smote':
+            sm = SMOTE(random_state=42)
+            X_train, Y_train = sm.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'adasyn':
+            adasyn = ADASYN(random_state=42)
+            X_train, Y_train = adasyn.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'rus':
+            rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+            X_train, Y_train = rus.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'tomek':
+            tomek = TomekLinks()
+            X_train, Y_train = tomek.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'nearmiss':
+            near_miss = NearMiss()
+            X_train, Y_train = near_miss.fit_resample(X_train, Y_train)
+        elif imbalanced_learn_method == 'smotetomek':
+            smotetomek = SMOTETomek(random_state=42)
+            X_train, Y_train = smotetomek.fit_resample(X_train, Y_train)
+        if class_weight_strategy == 'up_weight_majority':
+            if imbalanced_learn_method not in {'nearmiss', 'rus', 'tomek'}:
+                raise Exception(f"imbalanced_learn_method {imbalanced_learn_method} is not a down-sampling so "
+                                f"majority up-weighing is not allowed")
+            class_weight_dict = {0: majority_class_count / desired_majority_count, 1: 1}
+        elif class_weight_strategy == 'up_weight_minority':
+            class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(Y_train), y=Y_train)
+            class_weight_dict = dict(enumerate(class_weights))
+        else:
+            class_weight_dict = None
+        print(f'class_weight_dict = {class_weight_dict}')
+        return X_train, Y_train, class_weight_dict
