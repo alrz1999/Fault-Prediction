@@ -1246,7 +1246,7 @@ class PrototypicalNetwork(KerasClassifier):
         Generate support and query sets for Prototypical Networks.
         """
         unique_labels = np.unique(labels)
-        selected_labels = np.random.choice(unique_labels, size=n_way, replace=False)
+        selected_labels = np.random.choice(unique_labels, size=n_way, replace=True)
 
         support_embeddings = []
         support_labels = []
@@ -1255,7 +1255,7 @@ class PrototypicalNetwork(KerasClassifier):
 
         for label in selected_labels:
             label_indices = np.where(labels == label)[0]
-            chosen_indices = np.random.choice(label_indices, size=n_support + n_query, replace=False)
+            chosen_indices = np.random.choice(label_indices, size=n_support + n_query, replace=True)
             support_indices = chosen_indices[:n_support]
             query_indices = chosen_indices[n_support:]
 

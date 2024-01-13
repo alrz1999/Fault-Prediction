@@ -492,9 +492,9 @@ def prototypical_network_classifier(train_dataset_name, train_dataset_importer, 
     )
 
 
-def get_cross_release_dataset():
+def get_cross_release_dataset(project_name: str):
     project = Project(
-        name="poi",
+        name=project_name,
         line_level_dataset_save_dir=LINE_LEVEL_DATA_SAVE_DIR,
         file_level_dataset_dir=ORIGINAL_FILE_LEVEL_DATA_DIR,
         method_level_dataset_dir=METHOD_LEVEL_DATA_SAVE_DIR
@@ -545,27 +545,32 @@ def get_cross_project_2_dataset():
 classification_type = ClassificationType.FILE_LEVEL
 dataset_type = DatasetType.FILE_LEVEL
 
-if __name__ == '__main__':
-    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset()
+
+def run_classifiers(project_name: str):
+    train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset(project_name)
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_2_dataset()
-
-    # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # reptile_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    # siamese_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    reptile_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    siamese_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # triplet_network_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # prototypical_network_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-
     # keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+
+
+if __name__ == '__main__':
+    for project_name in Project.releases_by_project_name.keys():
+        if project_name.startswith('promise'):
+            run_classifiers(project_name)

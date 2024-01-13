@@ -81,7 +81,7 @@ class GensimWord2VecModel(EmbeddingModel):
         tokens.extend([['<pad>'] * 100000])
         model = Word2Vec(tokens, vector_size=embedding_dim, min_count=1, sorted_vocab=1)
         output_model = cls(model, dataset_name, embedding_dim, token_extractor)
-        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+        print(f"{cls.__name__} training on {dataset_name} with {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
         return output_model
 
     @classmethod
@@ -148,12 +148,13 @@ class KerasTokenizer(EmbeddingModel):
         to_lowercase = metadata.get('to_lowercase')
         num_words = metadata.get('num_words')
         oov_token = metadata.get('oov_token')
+        dataset_name = metadata.get('dataset_name')
 
         tokens = [token_extractor.extract_tokens(text) for text in texts]
         tokenizer = Tokenizer(lower=to_lowercase, num_words=num_words, oov_token=oov_token)
         tokenizer.fit_on_texts(tokens)
         output_model = cls(tokenizer, embedding_dim)
-        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+        print(f"{cls.__name__} training on {dataset_name} with {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
         return output_model
 
     def text_to_indexes(self, texts):
@@ -181,10 +182,12 @@ class SklearnCountTokenizer(EmbeddingModel):
     def train(cls, texts, metadata):
         embedding_dim = metadata.get('embedding_dim')
         to_lowercase = metadata.get('to_lowercase')
+        dataset_name = metadata.get('dataset_name')
+
         vectorizer = CountVectorizer(lowercase=to_lowercase)
         vectorizer.fit(texts)
         output_model = cls(vectorizer, embedding_dim)
-        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+        print(f"{cls.__name__} training on {dataset_name} with {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
         return output_model
 
     def text_to_indexes(self, texts):
@@ -213,6 +216,7 @@ class KerasTextVectorizer(EmbeddingModel):
         embedding_dim = metadata.get('embedding_dim')
         max_tokens = metadata.get('vocab_size')
         output_sequence_length = metadata.get('max_seq_len')
+        dataset_name = metadata.get('dataset_name')
 
         vectorize_layer = TextVectorization(
             max_tokens=max_tokens,
@@ -221,7 +225,7 @@ class KerasTextVectorizer(EmbeddingModel):
         )
         vectorize_layer.adapt(texts)
         output_model = cls(vectorize_layer, embedding_dim)
-        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+        print(f"{cls.__name__} training on {dataset_name} with {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
         return output_model
 
     def text_to_indexes(self, texts):
@@ -265,7 +269,7 @@ class CodeBertEmbedding(EmbeddingModel):
         all_tokens.insert(0, '<pad>')
         output_model = cls(model, dataset_name, embedding_dim, token_extractor, all_tokens)
 
-        print(f"{cls.__name__} training on {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
+        print(f"{cls.__name__} training on {dataset_name} with  {len(texts)} texts finished with {output_model.get_vocab_size()} vocab_size")
 
         return output_model
 
