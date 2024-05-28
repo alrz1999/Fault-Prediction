@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 from keras.layers import Dense, Layer, GRU, Dropout, LayerNormalization, Embedding
 from keras.src.layers import Bidirectional, Attention, MultiHeadAttention
 

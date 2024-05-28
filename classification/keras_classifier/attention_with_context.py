@@ -1,10 +1,5 @@
-from keras.preprocessing.text import Tokenizer, text_to_word_sequence
-from keras import initializers as initializers, regularizers, constraints
-from keras.callbacks import Callback, ModelCheckpoint
-from keras.layers import Embedding, Input, Dense, LSTM, GRU, Bidirectional, TimeDistributed
 from keras import backend as K
-from keras import optimizers
-from keras.models import Model
+from keras import initializers as initializers, regularizers, constraints
 from keras.src.engine.base_layer import Layer
 
 

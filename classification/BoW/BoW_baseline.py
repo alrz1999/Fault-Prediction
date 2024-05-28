@@ -2,14 +2,10 @@ import os
 import pickle
 import re
 
-import numpy as np
-import pandas as pd
-from imblearn.over_sampling import SMOTE
-from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 
-from config import BOW_SAVE_MODEL_DIR, BOW_SAVE_PREDICTION_DIR
 from classification.models import ClassifierModel
+from config import BOW_SAVE_MODEL_DIR, BOW_SAVE_PREDICTION_DIR
 
 
 class BOWBaseLineClassifier(ClassifierModel):

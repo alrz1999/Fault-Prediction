@@ -99,14 +99,3 @@ def store_metric(metric_name, train_dataset_name, test_dataset_name, classifier_
 
     df.at[(train_dataset_name, test_dataset_name), classifier_name] = round(metric_value, ndigits=2)
     df.to_csv(filename)
-
-
-def main():
-    # Replace these arrays with your actual test data and predictions
-    true_labels = np.array([1, 0, 1, 1, 0, 1, 0, 1, 0, 0])
-    predicted_labels = np.array([1, 1, 0, 1, 0, 1, 1, 0, 1, 0])
-    evaluate(true_labels, predicted_labels)
-
-
-if __name__ == '__main__':
-    main()
