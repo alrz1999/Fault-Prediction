@@ -29,7 +29,7 @@ class KerasClassifier(ClassifierModel):
 
     def get_model_save_path(self, train_dataset_name):
         class_name = self.__class__.__name__
-        return f'models/{class_name}-{train_dataset_name}.h5'
+        return f'./models/{class_name}-{train_dataset_name}.h5'
 
     def fit(self, X_train, Y_train, batch_size, class_weight_dict, train_dataset_name, epochs, X_valid, Y_valid):
         early_stopping = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
@@ -763,7 +763,6 @@ class EnsembleClassifier(ClassifierModel):
 
 
 class ReptileClassifier(KerasClassifier):
-
     @classmethod
     def build_classifier(cls, vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs):
         return SiameseClassifier.build_classifier(vocab_size, embedding_dim, embedding_matrix, max_seq_len, **kwargs)
@@ -776,13 +775,16 @@ class ReptileClassifier(KerasClassifier):
         inner_batch_size = 25
         eval_batch_size = 25
 
-        meta_iters = 300
+        # meta_iters = 300
+        meta_iters = 500
         eval_iters = 5
         inner_iters = 4
 
         eval_interval = 1
-        train_shots = 20
-        shots = 5
+        # train_shots = 20
+        # shots = 5
+        train_shots = 30
+        shots = 30
         classes = 2
 
         model = self.classifier

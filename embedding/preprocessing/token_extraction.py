@@ -204,21 +204,26 @@ class ASTExtractor(TokenExtractor):
     )
 
     def extract_tokens(self, input_text):
-        tree = javalang.parse.parse(input_text)
-        tokens = []
-        for path, node in tree:
-            if not self.cross_project and isinstance(node, javalang.parser.tree.ClassCreator):
-                tokens.append(node.type.name)
-            if isinstance(node, ASTExtractor.desired_nodes):
-                if not self.cross_project and isinstance(node, ASTExtractor.within_project_nodes):
-                    if isinstance(node,
-                                  (javalang.parser.tree.MethodInvocation, javalang.parser.tree.SuperMethodInvocation)):
-                        tokens.append(f'{node.member}()')
+        try:
+            tree = javalang.parse.parse(input_text)
+            tokens = []
+            for path, node in tree:
+                if not self.cross_project and isinstance(node, javalang.parser.tree.ClassCreator):
+                    tokens.append(node.type.name)
+                if isinstance(node, ASTExtractor.desired_nodes):
+                    if not self.cross_project and isinstance(node, ASTExtractor.within_project_nodes):
+                        if isinstance(node,
+                                      (javalang.parser.tree.MethodInvocation, javalang.parser.tree.SuperMethodInvocation)):
+                            tokens.append(f'{node.member}()')
+                        else:
+                            tokens.append(node.name)
                     else:
-                        tokens.append(node.name)
-                else:
-                    tokens.append(node.__class__.__name__)
-        return tokens
+                        tokens.append(node.__class__.__name__)
+            return tokens
+        except Exception as e:
+            print(e)
+            print(input_text)
+            return []
 
     def extract_methods_data(self, input_text):
         tree = javalang.parse.parse(input_text)

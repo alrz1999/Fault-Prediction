@@ -60,39 +60,45 @@ class AggregatedDatasetImporter(LineLevelDatasetImporter, FileLevelDatasetImport
 
 
 class Project(LineLevelDatasetImporter, MethodLevelDatasetImporter, FileLevelDatasetImporter):
-    all_train_releases = {'activemq': 'activemq-5.0.0', 'camel': 'camel-1.4.0', 'derby': 'derby-10.2.1.6',
-                          'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
-                          'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1',
+    all_train_releases = {
+        'activemq': 'activemq-4.0.0', 'new-activemq': 'new-activemq-5.0.0', 'camel': 'camel-1.4.0',
+        'derby': 'derby-10.2.1.6', 'groovy': 'groovy-1_5_7', 'hbase': 'hbase-0.94.0', 'hive': 'hive-0.9.0',
+        'jruby': 'jruby-1.1', 'lucene': 'lucene-2.3.0', 'wicket': 'wicket-1.3.0-incubating-beta-1',
 
-                          'promise_ant': 'ant-1.3', 'promise_camel': 'camel-1.0', 'promise_jedit': 'jedit-3.2',
-                          'promise_log4j': 'log4j-1.0', 'promise_lucene': 'lucene-2.0', 'promise_poi': 'poi-1.5',
-                          'promise_synapse': 'synapse-1.0', 'promise_velocity': 'velocity-1.4',
-                          'promise_xalan': 'xalan-2.4', 'promise_xerces': 'xerces-1.1',
-                          }
+        'promise_ant': 'ant-1.3', 'promise_camel': 'camel-1.0', 'promise_jedit': 'jedit-3.2',
+        'promise_log4j': 'log4j-1.0', 'promise_lucene': 'lucene-2.0', 'promise_poi': 'poi-1.5',
+        'promise_synapse': 'synapse-1.0', 'promise_velocity': 'velocity-1.4',
+        'promise_xalan': 'xalan-2.4', 'promise_xerces': 'xerces-1.1',
+    }
 
-    all_eval_releases = {'activemq': ['activemq-5.1.0', 'activemq-5.2.0', 'activemq-5.3.0', 'activemq-5.8.0'],
-                         'camel': ['camel-2.9.0', 'camel-2.10.0', 'camel-2.11.0'],
-                         'derby': ['derby-10.3.1.4', 'derby-10.5.1.1'],
-                         'groovy': ['groovy-1_6_BETA_1', 'groovy-1_6_BETA_2'],
-                         'hbase': ['hbase-0.95.0', 'hbase-0.95.2'], 'hive': ['hive-0.10.0', 'hive-0.12.0'],
-                         'jruby': ['jruby-1.4.0', 'jruby-1.5.0', 'jruby-1.7.0.preview1'],
-                         'lucene': ['lucene-2.9.0', 'lucene-3.0.0', 'lucene-3.1'],
-                         'wicket': ['wicket-1.3.0-beta2', 'wicket-1.5.3'],
+    all_eval_releases = {
+        'activemq': ['activemq-5.0.0', 'activemq-5.1.0', 'activemq-5.2.0', 'activemq-5.3.0', 'activemq-5.8.0'],
+        'new-activemq': ['new-activemq-5.1.0', 'new-activemq-5.2.0', 'new-activemq-5.3.0', 'new-activemq-5.8.0'],
+        'camel': ['camel-2.9.0', 'camel-2.10.0', 'camel-2.11.0'],
+        'derby': ['derby-10.3.1.4', 'derby-10.5.1.1'],
+        'groovy': ['groovy-1_6_BETA_1', 'groovy-1_6_BETA_2'],
+        'hbase': ['hbase-0.95.0', 'hbase-0.95.2'], 'hive': ['hive-0.10.0', 'hive-0.12.0'],
+        'jruby': ['jruby-1.4.0', 'jruby-1.5.0', 'jruby-1.7.0.preview1'],
+        'lucene': ['lucene-2.9.0', 'lucene-3.0.0', 'lucene-3.1'],
+        'wicket': ['wicket-1.3.0-beta2', 'wicket-1.5.3'],
 
-                         'promise_ant': ['ant-1.4', 'ant-1.5', 'ant-1.6', 'ant-1.7'],
-                         'promise_camel': ['camel-1.2', 'camel-1.4', 'camel-1.6'],
-                         'promise_jedit': ['jedit-4.0', 'jedit-4.1', 'jedit-4.2', 'jedit-4.3'],
-                         'promise_log4j': ['log4j-1.1', 'log4j-1.2'],
-                         'promise_lucene': ['lucene-2.2', 'lucene-2.4'],
-                         'promise_poi': ['poi-2.0', 'poi-2.5', 'poi-3.0'],
-                         'promise_synapse': ['synapse-1.1', 'synapse-1.2'],
-                         'promise_velocity': ['velocity-1.5', 'velocity-1.6'],
-                         'promise_xalan': ['xalan-2.5', 'xalan-2.6', 'xalan-2.7'],
-                         'promise_xerces': ['xerces-1.2', 'xerces-1.3', 'xerces-1.4.4'],
-                         }
+        'promise_ant': ['ant-1.4', 'ant-1.5', 'ant-1.6', 'ant-1.7'],
+        'promise_camel': ['camel-1.2', 'camel-1.4', 'camel-1.6'],
+        'promise_jedit': ['jedit-4.0', 'jedit-4.1', 'jedit-4.2', 'jedit-4.3'],
+        'promise_log4j': ['log4j-1.1', 'log4j-1.2'],
+        'promise_lucene': ['lucene-2.2', 'lucene-2.4'],
+        'promise_poi': ['poi-2.0', 'poi-2.5', 'poi-3.0'],
+        'promise_synapse': ['synapse-1.1', 'synapse-1.2'],
+        'promise_velocity': ['velocity-1.5', 'velocity-1.6'],
+        'promise_xalan': ['xalan-2.5', 'xalan-2.6', 'xalan-2.7'],
+        'promise_xerces': ['xerces-1.2', 'xerces-1.3', 'xerces-1.4.4'],
+    }
 
     releases_by_project_name = {
-        'activemq': ['activemq-5.0.0', 'activemq-5.1.0', 'activemq-5.2.0', 'activemq-5.3.0', 'activemq-5.8.0'],
+        'activemq': ['activemq-4.0.0', 'activemq-5.0.0', 'activemq-5.1.0', 'activemq-5.2.0', 'activemq-5.3.0',
+                     'activemq-5.8.0'],
+        'new-activemq': ['new-activemq-5.0.0', 'new-activemq-5.1.0', 'new-activemq-5.2.0', 'new-activemq-5.3.0',
+                         'new-activemq-5.8.0'],
         'camel': ['camel-1.4.0', 'camel-2.9.0', 'camel-2.10.0', 'camel-2.11.0'],
         'derby': ['derby-10.2.1.6', 'derby-10.3.1.4', 'derby-10.5.1.1'],
         'groovy': ['groovy-1_5_7', 'groovy-1_6_BETA_1', 'groovy-1_6_BETA_2'],

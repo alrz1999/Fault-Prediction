@@ -11,14 +11,15 @@ from data.models import Project, AggregatedDatasetImporter
 from classification.keras_classifier.classifiers import KerasClassifier, KerasDenseClassifier, \
     KerasDenseClassifierWithEmbedding, KerasDenseClassifierWithExternalEmbedding, KerasCNNClassifierWithEmbedding, \
     KerasCNNClassifier, KerasLSTMClassifier, KerasBiLSTMClassifier, KerasGRUClassifier, KerasCNNandLSTMClassifier, \
-    KerasHANClassifier, KerasMAMLClassifier1, SiameseClassifier, ReptileClassifier, TripletNetwork, PrototypicalNetwork
+    KerasHANClassifier, KerasMAMLClassifier1, SiameseClassifier, ReptileClassifier, TripletNetwork, PrototypicalNetwork, \
+    KerasMAMLClassifier2
 from classification.mlp.mlp_baseline import MLPBaseLineClassifier
 from classification.BoW.BoW_baseline import (BOWBaseLineClassifier)
 from embedding.preprocessing.token_extraction import CustomTokenExtractor, ASTTokenizer, ASTExtractor, \
     CommaSplitTokenExtractor
 
 from embedding.models import GensimWord2VecModel, KerasTokenizer, SklearnCountTokenizer, KerasTextVectorizer, \
-    EmbeddingModel
+    EmbeddingModel, CodeBertEmbedding
 
 
 class ClassificationType(enum.Enum):
@@ -84,7 +85,7 @@ def get_embedding_model(embedding_cls: EmbeddingModel, metadata, train_dataset):
 
 def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
              classifier_cls, embedding_cls, token_extractor, embedding_dim, max_seq_len, batch_size, epochs,
-             to_lowercase=False, vocab_size=None, validation_dataset_importer=None):
+             to_lowercase=False, vocab_size=None, validation_dataset_importer=None, load_best_model=True):
     train_dataset = ClassificationDataset(import_dataset(train_dataset_importer, to_lowercase), dataset_type)
     validation_dataset = ClassificationDataset(import_dataset(validation_dataset_importer, to_lowercase), dataset_type)
 
@@ -102,7 +103,7 @@ def classify(train_dataset_name, train_dataset_importer, eval_dataset_importers,
         'dropout_ratio': 0.5,
         'class_weight_strategy': None,  # up_weight_majority, up_weight_minority
         'imbalanced_learn_method': None,  # smote, adasyn, rus, tomek, nearmiss, smotetomek,
-        'load_best_model': True
+        'load_best_model': load_best_model
     }
 
     embedding_model = get_embedding_model(embedding_cls, metadata, train_dataset)
@@ -316,7 +317,7 @@ def keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dat
 
 
 def keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 100
+    max_seq_len = 300
     to_lowercase = False
 
     classify(
@@ -327,7 +328,7 @@ def keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_datase
         embedding_cls=GensimWord2VecModel,
         # token_extractor=CustomTokenExtractor(to_lowercase=to_lowercase, max_seq_len=max_seq_len),
         token_extractor=ASTExtractor(cross_project=False),
-        embedding_dim=64,
+        embedding_dim=50,
         max_seq_len=max_seq_len,
         batch_size=32,
         epochs=10,
@@ -417,7 +418,7 @@ def torch_han_classifier(train_dataset_name, train_dataset_importer, eval_datase
 
 
 def reptile_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers):
-    max_seq_len = 100
+    max_seq_len = 200
     to_lowercase = True
 
     classify(
@@ -425,7 +426,7 @@ def reptile_classifier(train_dataset_name, train_dataset_importer, eval_dataset_
         train_dataset_importer=train_dataset_importer,
         eval_dataset_importers=eval_dataset_importers,
         classifier_cls=ReptileClassifier,
-        embedding_cls=GensimWord2VecModel,
+        embedding_cls=CodeBertEmbedding,
         token_extractor=ASTExtractor(False),
         embedding_dim=50,
         max_seq_len=max_seq_len,
@@ -492,6 +493,45 @@ def prototypical_network_classifier(train_dataset_name, train_dataset_importer, 
     )
 
 
+def keras_maml_classifier1(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 100
+    to_lowercase = True
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=KerasMAMLClassifier1,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=ASTExtractor(False),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=10,
+        validation_dataset_importer=eval_dataset_importers[0],
+        load_best_model=False
+    )
+
+def keras_maml_classifier2(train_dataset_name, train_dataset_importer, eval_dataset_importers):
+    max_seq_len = 100
+    to_lowercase = True
+
+    classify(
+        train_dataset_name=train_dataset_name,
+        train_dataset_importer=train_dataset_importer,
+        eval_dataset_importers=eval_dataset_importers,
+        classifier_cls=KerasMAMLClassifier2,
+        embedding_cls=GensimWord2VecModel,
+        token_extractor=ASTExtractor(False),
+        embedding_dim=50,
+        max_seq_len=max_seq_len,
+        batch_size=32,
+        epochs=10,
+        validation_dataset_importer=eval_dataset_importers[0],
+        load_best_model=False
+    )
+
+
 def get_cross_release_dataset(project_name: str):
     project = Project(
         name=project_name,
@@ -550,27 +590,29 @@ def run_classifiers(project_name: str):
     train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_release_dataset(project_name)
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_dataset()
     # train_dataset_name, train_dataset_importer, eval_dataset_importers = get_cross_project_2_dataset()
-    mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # mlp_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # bow_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_dense_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_dense_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_dense_classifier_with_external_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_cnn_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_cnn_classifier_with_embedding(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_bilstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_gru_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_cnn_lstm_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     reptile_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
-    siamese_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # siamese_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # triplet_network_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # prototypical_network_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # keras_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
     # torch_han_classifier(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_maml_classifier1(train_dataset_name, train_dataset_importer, eval_dataset_importers)
+    # keras_maml_classifier2(train_dataset_name, train_dataset_importer, eval_dataset_importers)
 
 
 if __name__ == '__main__':
     for project_name in Project.releases_by_project_name.keys():
-        if project_name.startswith('promise'):
+        if project_name.startswith('activemq'):
             run_classifiers(project_name)

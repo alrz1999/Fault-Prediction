@@ -51,7 +51,7 @@ def calculate_commit_count_per_developer(repo_path, tag):
 
     # Iterate through the commits up to the tagged commit
     for commit in repo.iter_commits(rev=tagged_commit):
-        # Analyze files in the commit
+        # Analy ze files in the commit
         for file in commit.stats.files:
             # Increment the commit count for the author of this commit for the file
             file_commit_counts[file][commit.author.email] += 1

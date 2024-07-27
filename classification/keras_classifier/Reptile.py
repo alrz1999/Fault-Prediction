@@ -28,7 +28,7 @@ class ReptileDataset:
             test_embeddings = np.zeros(shape=(num_classes, self.embedding_shape))
 
         # Get a random subset of labels from the entire label set.
-        label_subset = random.choices(self.labels, k=num_classes)
+        label_subset = random.sample(self.labels, num_classes)
         for class_idx, class_obj in enumerate(label_subset):
             # Use enumerated index value as a temporary label for mini-batch in
             # few shot learning.
